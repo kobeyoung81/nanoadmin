@@ -53,7 +53,7 @@ func main() {
 	case "version":
 		fmt.Println(version)
 	default:
-		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|get}|migrate {up|status}|version]\n")
+		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|set|get}|migrate {up|status}|version]\n")
 		os.Exit(2)
 	}
 }
@@ -129,6 +129,21 @@ func configCmd(args []string) error {
 			fmt.Printf("Seeded %d config items for %q.\n", len(items), componentType)
 		}
 		return nil
+	case "set":
+		if len(args) != 3 {
+			return fmt.Errorf("usage: nanoadmin config set <component-type> <key> <value>")
+		}
+		st, err := store.Open(cfg.MongoURI)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = st.Close() }()
+
+		if err := st.SetConfigItemTyped(args[0], args[1], args[2], "", ""); err != nil {
+			return fmt.Errorf("set config item: %w", err)
+		}
+		fmt.Printf("Config %s.%s updated.\n", args[0], args[1])
+		return nil
 	case "get":
 		if len(args) < 1 {
 			return fmt.Errorf("usage: nanoadmin config get <component-type> [key]")
@@ -159,7 +174,7 @@ func configCmd(args []string) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("unknown config subcommand %q (want seed or get)", sub)
+		return fmt.Errorf("unknown config subcommand %q (want seed, set or get)", sub)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
@@ -24,6 +25,14 @@ func (f fakeStore) GetConfigItem(string, string) (store.ConfigItem, bool, error)
 func (f fakeStore) ListConfigComponents() ([]string, error) { return f.components, nil }
 
 func (f fakeStore) SetConfigItemTyped(string, string, string, string, string) error { return nil }
+
+func (f fakeStore) ConfigUpdatedAt(string) (time.Time, error) {
+	return time.Unix(1700000000, 0).UTC(), nil
+}
+
+func (f fakeStore) CountConfigItems(string, string, string, string) (int, error) {
+	return len(f.items), nil
+}
 
 func newTestServer(token string) http.Handler {
 	cfg := config.Config{Addr: ":0", InternalToken: token}
@@ -125,6 +134,36 @@ func TestConfigWriteRequiresTheTokenAndAcceptsTheBody(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("malformed body = %d, want 400", rec.Code)
+	}
+}
+
+// The console's overview needs the two summary endpoints; both are internal
+// like every other config route.
+func TestConfigSummaryEndpoints(t *testing.T) {
+	handler := newTestServer("secret")
+
+	for _, path := range []string{"/api/v1/config-updated-at/agent", "/api/v1/config-counts/agent?key_prefix=agent."} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s without a token = %d, want 401", path, rec.Code)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("Authorization", "Bearer secret")
+		rec = httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s = %d: %s", path, rec.Code, rec.Body.String())
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/config-updated-at/agent", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if !strings.Contains(rec.Body.String(), `"updated_at":"2023-11-14T22:13:20Z"`) {
+		t.Fatalf("updated-at body = %s", rec.Body.String())
 	}
 }
 

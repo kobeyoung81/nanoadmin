@@ -16,13 +16,13 @@ import (
 
 // These tests need a real MongoDB: the behaviour under test (the unique index
 // rejecting a second row, the migration records being scoped by service) is the
-// server's, not Go's. Without NANO_ADMIN_TEST_URI they skip rather than pretend
+// server's, not Go's. Without NANOSEC_ADMIN_TEST_URI they skip rather than pretend
 // to pass.
 func testStore(t *testing.T) *Store {
 	t.Helper()
-	uri := os.Getenv("NANO_ADMIN_TEST_URI")
+	uri := os.Getenv("NANOSEC_ADMIN_TEST_URI")
 	if uri == "" {
-		t.Skip("NANO_ADMIN_TEST_URI not set")
+		t.Skip("NANOSEC_ADMIN_TEST_URI not set")
 	}
 	u, err := url.Parse(uri)
 	if err != nil {

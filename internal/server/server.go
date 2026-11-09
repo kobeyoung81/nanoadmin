@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
@@ -18,6 +19,8 @@ type ConfigStore interface {
 	GetConfigItem(componentType, key string) (store.ConfigItem, bool, error)
 	ListConfigComponents() ([]string, error)
 	SetConfigItemTyped(componentType, key, value, valueType, description string) error
+	ConfigUpdatedAt(componentType string) (time.Time, error)
+	CountConfigItems(componentType, keyPrefix, keySuffix, value string) (int, error)
 }
 
 // Server is the HTTP surface.
@@ -47,6 +50,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/config/{component}", s.restGetConfig)
 	mux.HandleFunc("GET /api/v1/config/{component}/{key}", s.restGetConfigItem)
 	mux.HandleFunc("PUT /api/v1/config/{component}/{key}", s.restSetConfig)
+	mux.HandleFunc("GET /api/v1/config-updated-at/{component}", s.restConfigUpdatedAt)
+	mux.HandleFunc("GET /api/v1/config-counts/{component}", s.restCountConfigItems)
 
 	return s.key.Guard(mux, func(r *http.Request) bool {
 		return strings.HasPrefix(r.URL.Path, "/api/v1/")
@@ -91,6 +96,39 @@ func (s *Server) restGetConfigItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
+}
+
+// restConfigUpdatedAt answers "when did this component last change", which the
+// console shows per component. An empty updated_at means "no items", not an
+// error: the page renders a dash.
+func (s *Server) restConfigUpdatedAt(w http.ResponseWriter, r *http.Request) {
+	component := r.PathValue("component")
+	updated, err := s.store.ConfigUpdatedAt(component)
+	if err != nil {
+		slog.Error("config updated at", "component", component, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	body := map[string]any{"component_type": component, "updated_at": ""}
+	if !updated.IsZero() {
+		body["updated_at"] = updated.UTC().Format(time.RFC3339)
+	}
+	writeJSON(w, http.StatusOK, body)
+}
+
+// restCountConfigItems answers the overview's count query without downloading
+// the component.
+func (s *Server) restCountConfigItems(w http.ResponseWriter, r *http.Request) {
+	component := r.PathValue("component")
+	query := r.URL.Query()
+	count, err := s.store.CountConfigItems(component,
+		query.Get("key_prefix"), query.Get("key_suffix"), query.Get("value"))
+	if err != nil {
+		slog.Error("count config items", "component", component, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"component_type": component, "count": count})
 }
 
 func (s *Server) restSetConfig(w http.ResponseWriter, r *http.Request) {

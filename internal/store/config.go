@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -180,4 +181,52 @@ func (s *Store) SeedConfigItems(componentType string, items []ConfigItem) error 
 		}
 	}
 	return nil
+}
+
+// ConfigUpdatedAt reports when the component last changed, or the zero time
+// when it has no items at all. The console shows "last changed" per component,
+// so an empty answer has to be distinguishable from an error.
+func (s *Store) ConfigUpdatedAt(componentType string) (time.Time, error) {
+	ctx, cancel := opCtx()
+	defer cancel()
+
+	var doc struct {
+		UpdatedAt time.Time `bson:"updated_at"`
+	}
+	err := s.db.Collection(configItemsCollection).FindOne(ctx,
+		bson.D{{Key: "component_type", Value: componentType}},
+		options.FindOne().
+			SetProjection(bson.D{{Key: "updated_at", Value: 1}}).
+			SetSort(bson.D{{Key: "updated_at", Value: -1}}),
+	).Decode(&doc)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return time.Time{}, nil
+	}
+	if err != nil {
+		return time.Time{}, fmt.Errorf("config updated at: %w", err)
+	}
+	return doc.UpdatedAt, nil
+}
+
+// CountConfigItems counts a component's items, optionally narrowed by a key
+// prefix/suffix and an exact value. The console's overview asks this to show
+// "12 items, 3 matching X" without downloading the component.
+func (s *Store) CountConfigItems(componentType, keyPrefix, keySuffix, value string) (int, error) {
+	ctx, cancel := opCtx()
+	defer cancel()
+
+	filter := bson.D{{Key: "component_type", Value: componentType}}
+	if keyPrefix != "" || keySuffix != "" {
+		pattern := "^" + regexp.QuoteMeta(keyPrefix) + ".*" + regexp.QuoteMeta(keySuffix) + "$"
+		filter = append(filter, bson.E{Key: "config_key", Value: bson.D{{Key: "$regex", Value: pattern}}})
+	}
+	if value != "" {
+		filter = append(filter, bson.E{Key: "config_value", Value: value})
+	}
+
+	count, err := s.db.Collection(configItemsCollection).CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, fmt.Errorf("count config items: %w", err)
+	}
+	return int(count), nil
 }

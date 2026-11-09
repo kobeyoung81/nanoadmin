@@ -9,9 +9,9 @@ import "os"
 // settings a console would need to change, and the values it does read are the
 // ones the deployment already gives every service.
 type Config struct {
-	// Addr is the listen address (NANO_ADMIN_ADDR, default ":8080").
+	// Addr is the listen address (NANOSEC_ADMIN_ADDR, default ":8080").
 	Addr string
-	// MongoURI names the platform database (NANO_ADMIN_MONGO_URI, falling back
+	// MongoURI names the platform database (NANOSEC_ADMIN_MONGO_URI, falling back
 	// to the bus's variable so a deployment only has to fill in one URI).
 	MongoURI string
 	// InternalToken is the shared secret the platform's own callers present
@@ -23,8 +23,8 @@ type Config struct {
 // Load reads the configuration from the environment.
 func Load() Config {
 	return Config{
-		Addr:          env("NANO_ADMIN_ADDR", ":8080"),
-		MongoURI:      firstNonEmpty(os.Getenv("NANO_ADMIN_MONGO_URI"), os.Getenv("NANOSEC_BUS_DATABASE_URI")),
+		Addr:          env("NANOSEC_ADMIN_ADDR", ":8080"),
+		MongoURI:      firstNonEmpty(os.Getenv("NANOSEC_ADMIN_MONGO_URI"), os.Getenv("NANOSEC_BUS_DATABASE_URI")),
 		InternalToken: os.Getenv("NANOSEC_BUS_INTERNAL_TOKEN"),
 	}
 }

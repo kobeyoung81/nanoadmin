@@ -15,8 +15,8 @@ NanoSec 平台的 admin 模块：目录、配置、审计。
 
 | 环境变量 | 作用 |
 |---|---|
-| `NANO_ADMIN_ADDR` | 监听地址，默认 `:8080` |
-| `NANO_ADMIN_MONGO_URI` | 平台库连接串；未设置时回落到 `NANOSEC_BUS_DATABASE_URI` |
+| `NANOSEC_ADMIN_ADDR` | 监听地址，默认 `:8080` |
+| `NANOSEC_ADMIN_MONGO_URI` | 平台库连接串；未设置时回落到 `NANOSEC_BUS_DATABASE_URI` |
 | `NANOSEC_BUS_INTERNAL_TOKEN` | 内部令牌；为空时所有 `/api/v1` 请求一律拒绝 |
 
 ## 命令
