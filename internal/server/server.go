@@ -33,12 +33,22 @@ type ConfigStore interface {
 type Server struct {
 	cfg   config.Config
 	store ConfigStore
-	key   *InternalKey
+	// catalog is the same store, typed concretely: the catalogue handlers need
+	// methods the small ConfigStore interface does not carry.
+	catalog *store.Store
+	key     *InternalKey
 }
 
 // New builds a server.
 func New(cfg config.Config, st ConfigStore) *Server {
 	return &Server{cfg: cfg, store: st, key: NewInternalKey(cfg.InternalToken)}
+}
+
+// WithCatalog attaches the concrete store the catalogue handlers need. Tests
+// that only exercise configuration routes leave it nil.
+func (s *Server) WithCatalog(st *store.Store) *Server {
+	s.catalog = st
+	return s
 }
 
 // Handler returns the mux with the internal-key guard applied.
@@ -56,6 +66,31 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/config/{component}", s.restGetConfig)
 	mux.HandleFunc("GET /api/v1/config/{component}/{key}", s.restGetConfigItem)
 	mux.HandleFunc("PUT /api/v1/config/{component}/{key}", s.restSetConfig)
+	// Catalogue: agent types, their capability bindings and prompts.
+	mux.HandleFunc("GET /api/v1/agent-types", s.restListAgentTypes)
+	mux.HandleFunc("POST /api/v1/agent-types", s.restSaveAgentType)
+	mux.HandleFunc("GET /api/v1/agent-types/prompt-status", s.restAgentTypePromptStatus)
+	mux.HandleFunc("GET /api/v1/agent-types/{id}", s.restGetAgentType)
+	mux.HandleFunc("PUT /api/v1/agent-types/{id}", s.restSaveAgentType)
+	mux.HandleFunc("PUT /api/v1/agent-types/{id}/capabilities", s.restSetTypeCapability)
+	mux.HandleFunc("DELETE /api/v1/agent-types/{id}/capabilities", s.restDeleteTypeCapability)
+	mux.HandleFunc("DELETE /api/v1/agent-types/{id}", s.restDeleteAgentType)
+	mux.HandleFunc("POST /api/v1/agent-types/{id}/prompt/reset", s.restResetAgentTypePrompt)
+	mux.HandleFunc("GET /api/v1/prompt-blocks", s.restGetPromptBlocks)
+	mux.HandleFunc("PUT /api/v1/prompt-blocks", s.restSavePromptBlock)
+
+	// Model catalogue and providers.
+	mux.HandleFunc("GET /api/v1/models", s.restListModelsAdmin)
+	mux.HandleFunc("POST /api/v1/models/providers", s.restCreateProviderAdmin)
+	mux.HandleFunc("POST /api/v1/models/providers/test", s.restTestProviderAdmin)
+	mux.HandleFunc("PUT /api/v1/models/providers/{id}", s.restUpdateProviderAdmin)
+	mux.HandleFunc("DELETE /api/v1/models/providers/{id}", s.restDeleteProviderAdmin)
+	mux.HandleFunc("POST /api/v1/models/models", s.restCreateModelAdmin)
+	mux.HandleFunc("POST /api/v1/models/test", s.restTestModelAdmin)
+	mux.HandleFunc("PUT /api/v1/models/models/{id}", s.restUpdateModelAdmin)
+	mux.HandleFunc("DELETE /api/v1/models/models/{id}", s.restDeleteModelAdmin)
+	mux.HandleFunc("POST /api/v1/models/models/{id}/apply-to-agent-types", s.restApplyModelToBuiltInTypes)
+
 	mux.HandleFunc("GET /api/v1/permission-keys", s.restListPermissionKeys)
 	mux.HandleFunc("GET /api/v1/alert-rules", s.restListAlertRules)
 	mux.HandleFunc("POST /api/v1/alert-rules", s.restUpsertAlertRule)

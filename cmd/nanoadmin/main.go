@@ -17,8 +17,10 @@ import (
 	"syscall"
 	"time"
 
+	"gitee.com/kobeyoung81/nanoadmin/internal/agenttypes"
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
 	"gitee.com/kobeyoung81/nanoadmin/internal/permissionkeys"
+	"gitee.com/kobeyoung81/nanoadmin/internal/promptbundle"
 	"gitee.com/kobeyoung81/nanoadmin/internal/seed"
 	"gitee.com/kobeyoung81/nanoadmin/internal/server"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
@@ -51,6 +53,16 @@ func main() {
 			slog.Error("permissions failed", "error", err)
 			os.Exit(1)
 		}
+	case "agent-types":
+		if err := agentTypesSeed(); err != nil {
+			slog.Error("agent-types failed", "error", err)
+			os.Exit(1)
+		}
+	case "prompts":
+		if err := promptsSeed(args); err != nil {
+			slog.Error("prompts failed", "error", err)
+			os.Exit(1)
+		}
 	case "migrate":
 		if err := migrate(args); err != nil {
 			slog.Error("migrate failed", "error", err)
@@ -59,7 +71,7 @@ func main() {
 	case "version":
 		fmt.Println(version)
 	default:
-		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|set|get}|permissions seed|migrate {up|status}|version]\n")
+		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|set|get}|permissions seed|agent-types seed|prompts seed|migrate {up|status}|version]\n")
 		os.Exit(2)
 	}
 }
@@ -79,7 +91,7 @@ func serve() error {
 		return err
 	}
 
-	handler := server.New(cfg, st).Handler()
+	handler := server.New(cfg, st).WithCatalog(st).Handler()
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           handler,
@@ -182,6 +194,77 @@ func configCmd(args []string) error {
 	default:
 		return fmt.Errorf("unknown config subcommand %q (want seed, set or get)", sub)
 	}
+}
+
+// agentTypesSeed inserts the built-in agent types this binary ships, leaving
+// anything already there untouched: prompts, permissions and settings are
+// admin-editable and a deploy must not undo those edits.
+func agentTypesSeed() error {
+	cfg := config.Load()
+	st, err := store.Open(cfg.MongoURI)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = st.Close() }()
+
+	if err := applyMigrations(st); err != nil {
+		return err
+	}
+	defs := agenttypes.Definitions()
+	inserted, err := st.SeedAgentTypes(defs)
+	if err != nil {
+		return fmt.Errorf("seed agent types: %w", err)
+	}
+	fmt.Printf("Seeded %d agent type(s) (%d inserted, %d already present).\n",
+		len(defs), inserted, len(defs)-inserted)
+	return nil
+}
+
+// promptsSeed writes the bundled prompts onto the seeded types and the shared
+// head prompt onto its own document. --force also replaces edited text.
+func promptsSeed(args []string) error {
+	force := false
+	for _, a := range args {
+		if a == "--force" {
+			force = true
+		}
+	}
+	cfg := config.Load()
+	st, err := store.Open(cfg.MongoURI)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = st.Close() }()
+
+	if err := applyMigrations(st); err != nil {
+		return err
+	}
+	bundled, err := promptbundle.Load()
+	if err != nil {
+		return fmt.Errorf("load prompt bundle: %w", err)
+	}
+	updated, skipped, err := st.SeedPlatformPrompts(bundled, force)
+	if err != nil {
+		return fmt.Errorf("seed prompts: %w", err)
+	}
+	head, err := promptbundle.LoadSharedHead()
+	if err != nil {
+		return fmt.Errorf("load shared head prompt: %w", err)
+	}
+	headState := "absent"
+	if head.Text != "" {
+		headUpdated, err := st.SeedSessionHead(head, force)
+		if err != nil {
+			return fmt.Errorf("seed shared head prompt: %w", err)
+		}
+		headState = "left as-is"
+		if headUpdated {
+			headState = "updated"
+		}
+	}
+	fmt.Printf("Seeded %d bundled prompt(s) (%d updated, %d left as-is); shared head prompt %s.\n",
+		len(bundled), updated, skipped, headState)
+	return nil
 }
 
 // permissionsCmd seeds the permission key catalog this binary ships.
