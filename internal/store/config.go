@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -104,4 +105,79 @@ func (s *Store) ListConfigComponents() ([]string, error) {
 		}
 	}
 	return out, nil
+}
+
+// configItemKey is the identity of one item: the pair the unique index covers.
+func configItemKey(componentType, key string) bson.D {
+	return bson.D{
+		{Key: "component_type", Value: componentType},
+		{Key: "config_key", Value: key},
+	}
+}
+
+// SetConfigItemTyped writes a value, creating the item when it is new.
+//
+// value_type and description apply on insert only: an existing item keeps
+// whatever it had, so editing a value never silently reclassifies it (a
+// `secret` must stay masked, a `string` must not become one). This mirrors the
+// SQL upsert the bus used before the domain moved here.
+func (s *Store) SetConfigItemTyped(componentType, key, value, valueType, description string) error {
+	ctx, cancel := opCtx()
+	defer cancel()
+
+	if valueType == "" {
+		valueType = "string"
+	}
+
+	now := time.Now().UTC()
+	update := bson.D{
+		{Key: "$set", Value: bson.D{
+			{Key: "config_value", Value: value},
+			{Key: "updated_at", Value: now},
+		}},
+		{Key: "$setOnInsert", Value: bson.D{
+			{Key: "value_type", Value: valueType},
+			{Key: "description", Value: description},
+		}},
+	}
+	_, err := s.db.Collection(configItemsCollection).UpdateOne(ctx,
+		configItemKey(componentType, key), update, options.UpdateOne().SetUpsert(true))
+	if err != nil {
+		return fmt.Errorf("upsert config item: %w", err)
+	}
+	return nil
+}
+
+// SeedConfigItems inserts defaults without overwriting anything already there.
+//
+// Seeding runs on every start, and an operator's edited value must survive it —
+// that is the whole point of $setOnInsert here, in contrast with
+// SetConfigItemTyped, which always writes the value.
+func (s *Store) SeedConfigItems(componentType string, items []ConfigItem) error {
+	if len(items) == 0 {
+		return nil
+	}
+	ctx, cancel := opCtx()
+	defer cancel()
+	coll := s.db.Collection(configItemsCollection)
+
+	for _, item := range items {
+		// Only the value fields: component_type and config_key come from the
+		// filter on upsert, and naming them here too risks a path conflict.
+		update := bson.D{{Key: "$setOnInsert", Value: bson.D{
+			{Key: "config_value", Value: item.Value},
+			{Key: "value_type", Value: item.ValueType},
+			{Key: "description", Value: item.Description},
+			{Key: "updated_at", Value: time.Now().UTC()},
+		}}}
+		err := retryOnDuplicateUpsert(func() error {
+			_, err := coll.UpdateOne(ctx, configItemKey(componentType, item.Key), update,
+				options.UpdateOne().SetUpsert(true))
+			return err
+		})
+		if err != nil {
+			return fmt.Errorf("seed config item %q.%q: %w", componentType, item.Key, err)
+		}
+	}
+	return nil
 }

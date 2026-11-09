@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
+	"gitee.com/kobeyoung81/nanoadmin/internal/seed"
 	"gitee.com/kobeyoung81/nanoadmin/internal/server"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
 	"gitee.com/kobeyoung81/nanoadmin/migrations"
@@ -39,6 +40,11 @@ func main() {
 			slog.Error("nanoadmin stopped", "error", err)
 			os.Exit(1)
 		}
+	case "config":
+		if err := configCmd(args); err != nil {
+			slog.Error("config failed", "error", err)
+			os.Exit(1)
+		}
 	case "migrate":
 		if err := migrate(args); err != nil {
 			slog.Error("migrate failed", "error", err)
@@ -47,7 +53,7 @@ func main() {
 	case "version":
 		fmt.Println(version)
 	default:
-		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|migrate {up|status}|version]\n")
+		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|get}|migrate {up|status}|version]\n")
 		os.Exit(2)
 	}
 }
@@ -92,6 +98,68 @@ func serve() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
+	}
+}
+
+// configCmd runs the config subcommands. Only the seed still belongs to this
+// service's command line: reads are served over HTTP, and the console writes
+// through the same API.
+func configCmd(args []string) error {
+	sub := "seed"
+	if len(args) > 0 {
+		sub, args = args[0], args[1:]
+	}
+	cfg := config.Load()
+
+	switch sub {
+	case "seed":
+		st, err := store.Open(cfg.MongoURI)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = st.Close() }()
+
+		if err := applyMigrations(st); err != nil {
+			return err
+		}
+		for componentType, items := range seed.DefaultConfigItems() {
+			if err := st.SeedConfigItems(componentType, items); err != nil {
+				return fmt.Errorf("seed %s: %w", componentType, err)
+			}
+			fmt.Printf("Seeded %d config items for %q.\n", len(items), componentType)
+		}
+		return nil
+	case "get":
+		if len(args) < 1 {
+			return fmt.Errorf("usage: nanoadmin config get <component-type> [key]")
+		}
+		st, err := store.Open(cfg.MongoURI)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = st.Close() }()
+
+		if len(args) == 2 {
+			item, ok, err := st.GetConfigItem(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("no such config item: %s.%s", args[0], args[1])
+			}
+			fmt.Printf("%s = %s  [%s] %s\n", item.Key, item.Value, item.ValueType, item.Description)
+			return nil
+		}
+		items, err := st.GetConfigItems(args[0])
+		if err != nil {
+			return err
+		}
+		for _, item := range items {
+			fmt.Printf("  %-40s = %-30s [%s]\n", item.Key, item.Value, item.ValueType)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown config subcommand %q (want seed or get)", sub)
 	}
 }
 

@@ -137,3 +137,54 @@ func TestMigrationRecordsAreScopedToAdmin(t *testing.T) {
 		t.Fatalf("record id = %q, want an admin: prefix", id)
 	}
 }
+
+// A value edit must not reclassify an item: making a `secret` ordinary would
+// unmask it in every console that trusts value_type.
+func TestSetConfigItemKeepsTheInsertedTypeAndDescription(t *testing.T) {
+	st := testStore(t)
+
+	if err := st.SetConfigItemTyped("auth", "jwtPrivateKey", "pem-1", "secret", "JWT private key"); err != nil {
+		t.Fatalf("first write: %v", err)
+	}
+	if err := st.SetConfigItemTyped("auth", "jwtPrivateKey", "pem-2", "", ""); err != nil {
+		t.Fatalf("second write: %v", err)
+	}
+
+	item, ok, err := st.GetConfigItem("auth", "jwtPrivateKey")
+	if err != nil || !ok {
+		t.Fatalf("read back: ok=%v err=%v", ok, err)
+	}
+	if item.Value != "pem-2" {
+		t.Errorf("value = %q, want pem-2", item.Value)
+	}
+	if item.ValueType != "secret" {
+		t.Errorf("value_type = %q, want secret (an edit must not reclassify)", item.ValueType)
+	}
+	if item.Description != "JWT private key" {
+		t.Errorf("description = %q, want the inserted one", item.Description)
+	}
+}
+
+// Seeding runs on every start, so an operator's edited value has to survive it.
+func TestSeedDoesNotOverwriteExistingValues(t *testing.T) {
+	st := testStore(t)
+
+	defaults := []ConfigItem{{Key: "agent.language.default", Value: "zh", ValueType: "string", Description: "Language"}}
+	if err := st.SeedConfigItems("agent", defaults); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if err := st.SetConfigItemTyped("agent", "agent.language.default", "en", "", ""); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+	if err := st.SeedConfigItems("agent", defaults); err != nil {
+		t.Fatalf("re-seed: %v", err)
+	}
+
+	item, _, err := st.GetConfigItem("agent", "agent.language.default")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if item.Value != "en" {
+		t.Fatalf("value = %q, want the edited en (seeding must not overwrite)", item.Value)
+	}
+}

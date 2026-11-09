@@ -88,3 +88,15 @@ const opTimeout = 15 * time.Second
 func opCtx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), opTimeout)
 }
+
+// retryOnDuplicateUpsert runs fn again once when it fails with a duplicate-key
+// error. MongoDB documents that concurrent upserts on a unique index can raise
+// E11000 instead of updating in place; the documented remedy is a retry, and
+// without it a race turns into a user-visible failure.
+func retryOnDuplicateUpsert(fn func() error) error {
+	err := fn()
+	if err != nil && mongo.IsDuplicateKeyError(err) {
+		return fn()
+	}
+	return err
+}

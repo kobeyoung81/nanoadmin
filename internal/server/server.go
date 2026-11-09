@@ -17,6 +17,7 @@ type ConfigStore interface {
 	GetConfigItems(componentType string) ([]store.ConfigItem, error)
 	GetConfigItem(componentType, key string) (store.ConfigItem, bool, error)
 	ListConfigComponents() ([]string, error)
+	SetConfigItemTyped(componentType, key, value, valueType, description string) error
 }
 
 // Server is the HTTP surface.
@@ -45,6 +46,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/config", s.restListConfigComponents)
 	mux.HandleFunc("GET /api/v1/config/{component}", s.restGetConfig)
 	mux.HandleFunc("GET /api/v1/config/{component}/{key}", s.restGetConfigItem)
+	mux.HandleFunc("PUT /api/v1/config/{component}/{key}", s.restSetConfig)
 
 	return s.key.Guard(mux, func(r *http.Request) bool {
 		return strings.HasPrefix(r.URL.Path, "/api/v1/")
@@ -89,6 +91,34 @@ func (s *Server) restGetConfigItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
+}
+
+func (s *Server) restSetConfig(w http.ResponseWriter, r *http.Request) {
+	component := r.PathValue("component")
+	key := r.PathValue("key")
+
+	var body struct {
+		Value string `json:"value"`
+		// Optional, and used only when the item is created: a component that
+		// owns a key it generates itself (nanoauth's JWT keypair) declares its
+		// kind, and `secret` is what makes the console mask it.
+		ValueType   string `json:"value_type,omitempty"`
+		Description string `json:"description,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if err := s.store.SetConfigItemTyped(component, key, body.Value, body.ValueType, body.Description); err != nil {
+		slog.Error("set config item", "component", component, "key", key, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"component_type": component,
+		"key":            key,
+		"value":          body.Value,
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

@@ -23,6 +23,8 @@ func (f fakeStore) GetConfigItem(string, string) (store.ConfigItem, bool, error)
 }
 func (f fakeStore) ListConfigComponents() ([]string, error) { return f.components, nil }
 
+func (f fakeStore) SetConfigItemTyped(string, string, string, string, string) error { return nil }
+
 func newTestServer(token string) http.Handler {
 	cfg := config.Config{Addr: ":0", InternalToken: token}
 	st := fakeStore{
@@ -88,6 +90,41 @@ func TestConfigReadsWithToken(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"value":"zh"`) {
 		t.Fatalf("single item: status = %d body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+// Writing is the whole reason the domain moved: the console's save must reach
+// this service, and it must be refused without the token like any other read.
+func TestConfigWriteRequiresTheTokenAndAcceptsTheBody(t *testing.T) {
+	handler := newTestServer("secret")
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/config/agent/agent.language.default",
+		strings.NewReader(`{"value":"en","value_type":"string"}`))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated write = %d, want 401", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodPut, "/api/v1/config/agent/agent.language.default",
+		strings.NewReader(`{"value":"en","value_type":"string"}`))
+	req.Header.Set("Authorization", "Bearer secret")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("write = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"value":"en"`) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPut, "/api/v1/config/agent/agent.language.default",
+		strings.NewReader(`not json`))
+	req.Header.Set("Authorization", "Bearer secret")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("malformed body = %d, want 400", rec.Code)
 	}
 }
 
