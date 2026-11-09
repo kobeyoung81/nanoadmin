@@ -1,0 +1,163 @@
+// Command nanoadmin serves the platform's admin domain: the agent-type,
+// model, capability, prompt, permission-key, audit and configuration catalogues.
+//
+// The bus keeps only messages; everything a console edits lives here. This
+// service writes only the admin_ prefix and reads nothing outside it — other
+// modules' facts arrive over HTTP.
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"gitee.com/kobeyoung81/nanoadmin/internal/config"
+	"gitee.com/kobeyoung81/nanoadmin/internal/server"
+	"gitee.com/kobeyoung81/nanoadmin/internal/store"
+	"gitee.com/kobeyoung81/nanoadmin/migrations"
+)
+
+// version is stamped at build time (see Dockerfile).
+var version = "dev"
+
+func main() {
+	cmd := "serve"
+	args := os.Args[1:]
+	if len(args) > 0 {
+		cmd, args = args[0], args[1:]
+	}
+
+	switch cmd {
+	case "serve":
+		if err := serve(); err != nil {
+			slog.Error("nanoadmin stopped", "error", err)
+			os.Exit(1)
+		}
+	case "migrate":
+		if err := migrate(args); err != nil {
+			slog.Error("migrate failed", "error", err)
+			os.Exit(1)
+		}
+	case "version":
+		fmt.Println(version)
+	default:
+		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|migrate {up|status}|version]\n")
+		os.Exit(2)
+	}
+}
+
+func serve() error {
+	cfg := config.Load()
+
+	st, err := store.Open(cfg.MongoURI)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = st.Close() }()
+
+	// Apply the manifests before listening: a fresh database then comes up with
+	// its indexes already in place, and a second start is a no-op.
+	if err := applyMigrations(st); err != nil {
+		return err
+	}
+
+	handler := server.New(cfg, st).Handler()
+	srv := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	errCh := make(chan error, 1)
+	go func() {
+		slog.Info("nanoadmin listening", "addr", cfg.Addr, "version", version)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return srv.Shutdown(shutdownCtx)
+	}
+}
+
+func migrate(args []string) error {
+	sub := "up"
+	if len(args) > 0 {
+		sub = args[0]
+	}
+	cfg := config.Load()
+	st, err := store.Open(cfg.MongoURI)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = st.Close() }()
+
+	switch sub {
+	case "up":
+		manifests, err := migrations.Load()
+		if err != nil {
+			return err
+		}
+		ran, err := st.Migrate(manifests)
+		if err != nil {
+			return err
+		}
+		if len(ran) == 0 {
+			fmt.Println("Database is up to date.")
+			return nil
+		}
+		for _, name := range ran {
+			fmt.Printf("Applied: %s\n", name)
+		}
+		return nil
+	case "status":
+		manifests, err := migrations.Load()
+		if err != nil {
+			return err
+		}
+		infos, err := st.MigrationStatus(manifests)
+		if err != nil {
+			return err
+		}
+		for _, info := range infos {
+			state := "pending"
+			if info.Applied {
+				state = "applied " + info.AppliedAt.Format(time.RFC3339)
+			}
+			fmt.Printf("%-32s %s\n", info.Name, state)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown migrate subcommand %q (want up or status)", sub)
+	}
+}
+
+func applyMigrations(st *store.Store) error {
+	manifests, err := migrations.Load()
+	if err != nil {
+		return err
+	}
+	ran, err := st.Migrate(manifests)
+	if err != nil {
+		return err
+	}
+	if len(ran) > 0 {
+		slog.Info("applied migrations", "count", len(ran))
+	}
+	return nil
+}
