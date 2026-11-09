@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,9 @@ type ConfigStore interface {
 	SetConfigItemTyped(componentType, key, value, valueType, description string) error
 	ConfigUpdatedAt(componentType string) (time.Time, error)
 	CountConfigItems(componentType, keyPrefix, keySuffix, value string) (int, error)
+	ListAlertRules() ([]store.AlertRule, error)
+	UpsertAlertRule(rule store.AlertRule) (int64, error)
+	DeleteAlertRule(id int64) error
 }
 
 // Server is the HTTP surface.
@@ -50,6 +54,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/config/{component}", s.restGetConfig)
 	mux.HandleFunc("GET /api/v1/config/{component}/{key}", s.restGetConfigItem)
 	mux.HandleFunc("PUT /api/v1/config/{component}/{key}", s.restSetConfig)
+	mux.HandleFunc("GET /api/v1/alert-rules", s.restListAlertRules)
+	mux.HandleFunc("POST /api/v1/alert-rules", s.restUpsertAlertRule)
+	mux.HandleFunc("DELETE /api/v1/alert-rules/{id}", s.restDeleteAlertRule)
 	mux.HandleFunc("GET /api/v1/config-updated-at/{component}", s.restConfigUpdatedAt)
 	mux.HandleFunc("GET /api/v1/config-counts/{component}", s.restCountConfigItems)
 
@@ -96,6 +103,54 @@ func (s *Server) restGetConfigItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
+}
+
+func (s *Server) restListAlertRules(w http.ResponseWriter, r *http.Request) {
+	rules, err := s.store.ListAlertRules()
+	if err != nil {
+		slog.Error("list alert rules", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	if rules == nil {
+		rules = []store.AlertRule{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"rules": rules})
+}
+
+func (s *Server) restUpsertAlertRule(w http.ResponseWriter, r *http.Request) {
+	var rule store.AlertRule
+	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if rule.Severity == "" || rule.Message == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "severity and message are required"})
+		return
+	}
+
+	id, err := s.store.UpsertAlertRule(rule)
+	if err != nil {
+		slog.Error("upsert alert rule", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	// The id comes back so the caller that just created a rule can name it.
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "id": id})
+}
+
+func (s *Server) restDeleteAlertRule(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid rule id"})
+		return
+	}
+	if err := s.store.DeleteAlertRule(id); err != nil {
+		slog.Error("delete alert rule", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 // restConfigUpdatedAt answers "when did this component last change", which the

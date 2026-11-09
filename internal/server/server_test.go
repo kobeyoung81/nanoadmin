@@ -12,6 +12,7 @@ import (
 )
 
 type fakeStore struct {
+	rules      []store.AlertRule
 	items      []store.ConfigItem
 	components []string
 	single     store.ConfigItem
@@ -33,6 +34,10 @@ func (f fakeStore) ConfigUpdatedAt(string) (time.Time, error) {
 func (f fakeStore) CountConfigItems(string, string, string, string) (int, error) {
 	return len(f.items), nil
 }
+
+func (f fakeStore) ListAlertRules() ([]store.AlertRule, error)     { return f.rules, nil }
+func (f fakeStore) UpsertAlertRule(store.AlertRule) (int64, error) { return 7, nil }
+func (f fakeStore) DeleteAlertRule(int64) error                    { return nil }
 
 func newTestServer(token string) http.Handler {
 	cfg := config.Config{Addr: ":0", InternalToken: token}
@@ -164,6 +169,51 @@ func TestConfigSummaryEndpoints(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 	if !strings.Contains(rec.Body.String(), `"updated_at":"2023-11-14T22:13:20Z"`) {
 		t.Fatalf("updated-at body = %s", rec.Body.String())
+	}
+}
+
+// Alert rules are pure CRUD: the module owns list, upsert and delete, and the
+// console reads them through this surface.
+func TestAlertRulesCRUD(t *testing.T) {
+	handler := newTestServer("secret")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alert-rules", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"rules"`) {
+		t.Fatalf("list = %d %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/alert-rules", strings.NewReader(`{"severity":"warning","message":"cpu high"}`))
+	req.Header.Set("Authorization", "Bearer secret")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"id":7`) {
+		t.Fatalf("upsert = %d %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/alert-rules", strings.NewReader(`{"message":"no severity"}`))
+	req.Header.Set("Authorization", "Bearer secret")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("missing severity = %d, want 400", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/api/v1/alert-rules/7", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete = %d", rec.Code)
+	}
+
+	// And without the token nothing is served.
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/alert-rules", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated list = %d, want 401", rec.Code)
 	}
 }
 

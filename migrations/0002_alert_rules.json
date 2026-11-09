@@ -1,0 +1,12 @@
+{
+  "collections": {
+    "admin_alert_rules": {
+      "indexes": [
+        {
+          "name": "enabled_order",
+          "keys": [["enabled", 1], ["_id", 1]]
+        }
+      ]
+    }
+  }
+}
