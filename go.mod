@@ -2,7 +2,10 @@ module gitee.com/kobeyoung81/nanoadmin
 
 go 1.25.0
 
-require go.mongodb.org/mongo-driver/v2 v2.9.2
+require (
+	gitee.com/kobeyoung81/nanoprotocol v0.43.0
+	go.mongodb.org/mongo-driver/v2 v2.9.2
+)
 
 require (
 	github.com/klauspost/compress v1.19.2 // indirect

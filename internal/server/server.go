@@ -11,6 +11,7 @@ import (
 
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
+	"gitee.com/kobeyoung81/nanoprotocol"
 )
 
 // ConfigStore is the slice of the store this service's HTTP layer needs. It is
@@ -25,6 +26,7 @@ type ConfigStore interface {
 	ListAlertRules() ([]store.AlertRule, error)
 	UpsertAlertRule(rule store.AlertRule) (int64, error)
 	DeleteAlertRule(id int64) error
+	ListPermissionKeys() ([]nanoprotocol.PermissionKeyDef, error)
 }
 
 // Server is the HTTP surface.
@@ -54,6 +56,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/config/{component}", s.restGetConfig)
 	mux.HandleFunc("GET /api/v1/config/{component}/{key}", s.restGetConfigItem)
 	mux.HandleFunc("PUT /api/v1/config/{component}/{key}", s.restSetConfig)
+	mux.HandleFunc("GET /api/v1/permission-keys", s.restListPermissionKeys)
 	mux.HandleFunc("GET /api/v1/alert-rules", s.restListAlertRules)
 	mux.HandleFunc("POST /api/v1/alert-rules", s.restUpsertAlertRule)
 	mux.HandleFunc("DELETE /api/v1/alert-rules/{id}", s.restDeleteAlertRule)
@@ -103,6 +106,21 @@ func (s *Server) restGetConfigItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
+}
+
+// restListPermissionKeys returns the catalog the console renders next to a
+// policy editor, and which the bus reads to validate a policy's read-only keys.
+func (s *Server) restListPermissionKeys(w http.ResponseWriter, r *http.Request) {
+	keys, err := s.store.ListPermissionKeys()
+	if err != nil {
+		slog.Error("list permission keys", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	if keys == nil {
+		keys = []nanoprotocol.PermissionKeyDef{}
+	}
+	writeJSON(w, http.StatusOK, nanoprotocol.PermissionKeysResponse{Keys: keys})
 }
 
 func (s *Server) restListAlertRules(w http.ResponseWriter, r *http.Request) {

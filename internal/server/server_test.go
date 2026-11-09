@@ -9,6 +9,7 @@ import (
 
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
+	"gitee.com/kobeyoung81/nanoprotocol"
 )
 
 type fakeStore struct {
@@ -38,6 +39,10 @@ func (f fakeStore) CountConfigItems(string, string, string, string) (int, error)
 func (f fakeStore) ListAlertRules() ([]store.AlertRule, error)     { return f.rules, nil }
 func (f fakeStore) UpsertAlertRule(store.AlertRule) (int64, error) { return 7, nil }
 func (f fakeStore) DeleteAlertRule(int64) error                    { return nil }
+
+func (f fakeStore) ListPermissionKeys() ([]nanoprotocol.PermissionKeyDef, error) {
+	return []nanoprotocol.PermissionKeyDef{{ID: "readonly_bash", ReadOnly: true}}, nil
+}
 
 func newTestServer(token string) http.Handler {
 	cfg := config.Config{Addr: ":0", InternalToken: token}
@@ -214,6 +219,29 @@ func TestAlertRulesCRUD(t *testing.T) {
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/alert-rules", nil))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("unauthenticated list = %d, want 401", rec.Code)
+	}
+}
+
+// The catalog is served to the console and to the bus (which validates a policy
+// against the read-only keys), so its shape is a contract.
+func TestPermissionKeysEndpoint(t *testing.T) {
+	handler := newTestServer("secret")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/permission-keys", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated = %d, want 401", rec.Code)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/permission-keys", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"readonly_bash"`) || !strings.Contains(rec.Body.String(), `"read_only":true`) {
+		t.Fatalf("body = %s", rec.Body.String())
 	}
 }
 

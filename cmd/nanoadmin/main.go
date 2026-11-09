@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
+	"gitee.com/kobeyoung81/nanoadmin/internal/permissionkeys"
 	"gitee.com/kobeyoung81/nanoadmin/internal/seed"
 	"gitee.com/kobeyoung81/nanoadmin/internal/server"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
@@ -45,6 +46,11 @@ func main() {
 			slog.Error("config failed", "error", err)
 			os.Exit(1)
 		}
+	case "permissions":
+		if err := permissionsCmd(args); err != nil {
+			slog.Error("permissions failed", "error", err)
+			os.Exit(1)
+		}
 	case "migrate":
 		if err := migrate(args); err != nil {
 			slog.Error("migrate failed", "error", err)
@@ -53,7 +59,7 @@ func main() {
 	case "version":
 		fmt.Println(version)
 	default:
-		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|set|get}|migrate {up|status}|version]\n")
+		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|set|get}|permissions seed|migrate {up|status}|version]\n")
 		os.Exit(2)
 	}
 }
@@ -175,6 +181,41 @@ func configCmd(args []string) error {
 		return nil
 	default:
 		return fmt.Errorf("unknown config subcommand %q (want seed, set or get)", sub)
+	}
+}
+
+// permissionsCmd seeds the permission key catalog this binary ships.
+//
+// Seeding only inserts what is missing: descriptions and default actions are
+// admin-editable, and re-running this on every deploy must not undo those edits.
+func permissionsCmd(args []string) error {
+	sub := "seed"
+	if len(args) > 0 {
+		sub = args[0]
+	}
+	cfg := config.Load()
+
+	switch sub {
+	case "seed":
+		st, err := store.Open(cfg.MongoURI)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = st.Close() }()
+
+		if err := applyMigrations(st); err != nil {
+			return err
+		}
+		keys := permissionkeys.Keys()
+		inserted, err := st.SeedPermissionKeys(keys)
+		if err != nil {
+			return fmt.Errorf("seed permission keys: %w", err)
+		}
+		fmt.Printf("Seeded %d permission key(s) (%d inserted, %d already present).\n",
+			len(keys), inserted, len(keys)-inserted)
+		return nil
+	default:
+		return fmt.Errorf("unknown permissions subcommand %q (want seed)", sub)
 	}
 }
 
