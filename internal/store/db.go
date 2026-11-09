@@ -21,6 +21,9 @@ import (
 type Store struct {
 	mongo *mongo.Client
 	db    *mongo.Database
+	// clearTypeRefs asks the owner of the agent rows to clear the type
+	// reference before a type is deleted.
+	clearTypeRefs func(typeID string) error
 }
 
 // Open connects to MongoDB and returns a Store. It pings the server so a bad URI
