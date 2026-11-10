@@ -624,8 +624,8 @@ func (s *Store) DeleteAgentType(id string) error {
 		return fmt.Errorf("agent type not found or is seeded")
 	}
 
-	// The agents pointing at this type belong to another service; ask its owner
-	// to clear the reference before the type disappears. A failure here leaves
+	// The agents pointing at this type belong to the portal; ask its owner to
+	// clear the reference before the type disappears. A failure here leaves
 	// the type in place rather than agents pointing at nothing.
 	if s.clearTypeRefs != nil {
 		if err := s.clearTypeRefs(id); err != nil {

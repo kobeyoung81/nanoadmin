@@ -93,7 +93,8 @@ func serve() error {
 	}
 
 	// Deleting a type must clear the agents pointing at it; their rows belong to
-	// the bus, so the delete asks the owner to do its part first.
+	// the portal, so the delete asks the owner (through the bus, which keeps the
+	// internal contract it has always exposed) to do its part first.
 	bus := busclient.New(cfg.BusURL, cfg.InternalToken)
 	st.SetTypeRefClearer(func(typeID string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
