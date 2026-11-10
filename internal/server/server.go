@@ -83,6 +83,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/agent-types", s.restListAgentTypes)
 	mux.HandleFunc("POST /api/v1/agent-types", s.restSaveAgentType)
 	mux.HandleFunc("GET /api/v1/agent-types/prompt-status", s.restAgentTypePromptStatus)
+	// Batch model resolution for the portal's agent rows: the catalogue lives
+	// here, the agents there, and a per-row round trip would not scale.
+	mux.HandleFunc("POST /api/v1/agent-types/effective-models", s.restEffectiveModels)
 	mux.HandleFunc("GET /api/v1/agent-types/{id}", s.restGetAgentType)
 	mux.HandleFunc("PUT /api/v1/agent-types/{id}", s.restSaveAgentType)
 	mux.HandleFunc("PUT /api/v1/agent-types/{id}/capabilities", s.restSetTypeCapability)
