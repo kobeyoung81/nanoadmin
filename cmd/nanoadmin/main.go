@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"gitee.com/kobeyoung81/nanoadmin/internal/agenttypes"
+	"gitee.com/kobeyoung81/nanoadmin/internal/busclient"
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
 	"gitee.com/kobeyoung81/nanoadmin/internal/permissionkeys"
 	"gitee.com/kobeyoung81/nanoadmin/internal/promptbundle"
@@ -90,6 +91,15 @@ func serve() error {
 	if err := applyMigrations(st); err != nil {
 		return err
 	}
+
+	// Deleting a type must clear the agents pointing at it; their rows belong to
+	// the bus, so the delete asks the owner to do its part first.
+	bus := busclient.New(cfg.BusURL, cfg.InternalToken)
+	st.SetTypeRefClearer(func(typeID string) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return bus.ClearAgentTypeRefs(ctx, typeID)
+	})
 
 	handler := server.New(cfg, st).WithCatalog(st).Handler()
 	srv := &http.Server{
