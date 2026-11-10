@@ -107,6 +107,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/models/models/{id}", s.restDeleteModelAdmin)
 	mux.HandleFunc("POST /api/v1/models/models/{id}/apply-to-agent-types", s.restApplyModelToBuiltInTypes)
 
+	// Builtin-tool catalogue: the console edits the platform default; the agent
+	// runtime announces definitions through the bus, which forwards here.
+	mux.HandleFunc("GET /api/v1/capabilities/builtin", s.restListBuiltin)
+	mux.HandleFunc("PUT /api/v1/capabilities/builtin/{id}", s.restUpdateBuiltin)
+	mux.HandleFunc("POST /api/v1/internal/builtin-tools/sync", s.restSyncBuiltinTools)
+
 	mux.HandleFunc("GET /api/v1/permission-keys", s.restListPermissionKeys)
 	mux.HandleFunc("GET /api/v1/alert-rules", s.restListAlertRules)
 	mux.HandleFunc("POST /api/v1/alert-rules", s.restUpsertAlertRule)
