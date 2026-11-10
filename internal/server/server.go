@@ -66,6 +66,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/config/{component}", s.restGetConfig)
 	mux.HandleFunc("GET /api/v1/config/{component}/{key}", s.restGetConfigItem)
 	mux.HandleFunc("PUT /api/v1/config/{component}/{key}", s.restSetConfig)
+	// User-scoped catalogue: a user's own models/providers and the assignable
+	// agent types. Ownership is the portal's check; it passes user_id explicitly.
+	mux.HandleFunc("GET /api/v1/user/agent-types", s.restListMyAgentTypes)
+	mux.HandleFunc("GET /api/v1/user/models", s.restListMyModels)
+	mux.HandleFunc("POST /api/v1/user/models/providers", s.restCreateMyProvider)
+	mux.HandleFunc("POST /api/v1/user/models/providers/test", s.restTestProviderMy)
+	mux.HandleFunc("PUT /api/v1/user/models/providers/{id}", s.restUpdateMyProvider)
+	mux.HandleFunc("DELETE /api/v1/user/models/providers/{id}", s.restDeleteMyProvider)
+	mux.HandleFunc("POST /api/v1/user/models/models", s.restCreateMyModel)
+	mux.HandleFunc("POST /api/v1/user/models/test", s.restTestModelMy)
+	mux.HandleFunc("PUT /api/v1/user/models/models/{id}", s.restUpdateMyModel)
+	mux.HandleFunc("DELETE /api/v1/user/models/models/{id}", s.restDeleteMyModel)
+
 	// Catalogue: agent types, their capability bindings and prompts.
 	mux.HandleFunc("GET /api/v1/agent-types", s.restListAgentTypes)
 	mux.HandleFunc("POST /api/v1/agent-types", s.restSaveAgentType)
