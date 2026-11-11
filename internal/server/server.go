@@ -2,6 +2,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"gitee.com/kobeyoung81/nanoadmin/internal/busclient"
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
 	"gitee.com/kobeyoung81/nanoprotocol"
@@ -37,6 +39,9 @@ type Server struct {
 	// methods the small ConfigStore interface does not carry.
 	catalog *store.Store
 	key     *InternalKey
+	// bus carries the few notifications the catalogue writes need (the agent
+	// supervisors listen to the bus's SSE stream, not to this service).
+	bus *busclient.Client
 }
 
 // New builds a server.
@@ -49,6 +54,25 @@ func New(cfg config.Config, st ConfigStore) *Server {
 func (s *Server) WithCatalog(st *store.Store) *Server {
 	s.catalog = st
 	return s
+}
+
+// WithBus attaches the bus client used for capability-change broadcasts.
+func (s *Server) WithBus(bus *busclient.Client) *Server {
+	s.bus = bus
+	return s
+}
+
+// notifyCapabilitiesChanged asks the bus to broadcast. It never fails a write:
+// the catalogue is already saved, and the next agent start re-pulls it anyway.
+func (s *Server) notifyCapabilitiesChanged(kind string) {
+	if s.bus == nil || !s.bus.Enabled() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.bus.CapabilitiesChanged(ctx, kind); err != nil {
+		slog.Warn("broadcast capability change", "kind", kind, "error", err)
+	}
 }
 
 // Handler returns the mux with the internal-key guard applied.
@@ -112,6 +136,22 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/capabilities/builtin", s.restListBuiltin)
 	mux.HandleFunc("PUT /api/v1/capabilities/builtin/{id}", s.restUpdateBuiltin)
 	mux.HandleFunc("POST /api/v1/internal/builtin-tools/sync", s.restSyncBuiltinTools)
+
+	// The skill catalogue: the console manages definitions, users manage their own,
+	// and the agent runtime's save/delete/ack arrive through the internal face
+	// (the bus forwards them).
+	mux.HandleFunc("GET /api/v1/capabilities/skills", s.restListSkillsAdmin)
+	mux.HandleFunc("POST /api/v1/capabilities/skills", s.restCreateSkillAdmin)
+	mux.HandleFunc("PUT /api/v1/capabilities/skills/{id}", s.restUpdateSkillAdmin)
+	mux.HandleFunc("PUT /api/v1/capabilities/skills/{id}/state", s.restUpdateSkillState)
+	mux.HandleFunc("DELETE /api/v1/capabilities/skills/{id}", s.restDeleteSkillAdmin)
+	mux.HandleFunc("GET /api/v1/user/capabilities/library/skills", s.restListMySkills)
+	mux.HandleFunc("POST /api/v1/user/capabilities/library/skills", s.restCreateMySkill)
+	mux.HandleFunc("PUT /api/v1/user/capabilities/library/skills/{id}", s.restUpdateMySkill)
+	mux.HandleFunc("DELETE /api/v1/user/capabilities/library/skills/{id}", s.restDeleteMySkill)
+	mux.HandleFunc("POST /api/v1/internal/skills/save", s.internalSkillSave)
+	mux.HandleFunc("POST /api/v1/internal/skills/delete", s.internalSkillDelete)
+	mux.HandleFunc("POST /api/v1/internal/skills/ack", s.internalSkillAck)
 
 	mux.HandleFunc("GET /api/v1/permission-keys", s.restListPermissionKeys)
 	mux.HandleFunc("GET /api/v1/alert-rules", s.restListAlertRules)

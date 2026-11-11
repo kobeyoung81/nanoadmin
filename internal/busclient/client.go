@@ -5,7 +5,9 @@
 package busclient
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -27,6 +29,33 @@ func New(baseURL, token string) *Client {
 
 // Enabled reports whether a base URL was configured.
 func (c *Client) Enabled() bool { return c != nil && c.base != "" }
+
+// CapabilitiesChanged asks the bus to broadcast a capability-change event, which
+// is what makes every running agent re-pull its catalogue.
+func (c *Client) CapabilitiesChanged(ctx context.Context, kind string) error {
+	if !c.Enabled() {
+		return fmt.Errorf("bus is not configured")
+	}
+	body, _ := json.Marshal(map[string]string{"kind": kind})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.base+"/api/v1/internal/capabilities-changed", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("ask bus to broadcast the capability change: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= http.StatusBadRequest {
+		return fmt.Errorf("bus answered %d broadcasting the capability change", resp.StatusCode)
+	}
+	return nil
+}
 
 // ClearAgentTypeRefs asks the bus to unset type_id on the agents pointing at the
 // type about to be deleted.

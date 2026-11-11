@@ -24,8 +24,10 @@ import (
 	"gitee.com/kobeyoung81/nanoadmin/internal/promptbundle"
 	"gitee.com/kobeyoung81/nanoadmin/internal/seed"
 	"gitee.com/kobeyoung81/nanoadmin/internal/server"
+	"gitee.com/kobeyoung81/nanoadmin/internal/skillbundle"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
 	"gitee.com/kobeyoung81/nanoadmin/migrations"
+	"gitee.com/kobeyoung81/nanoprotocol"
 )
 
 // version is stamped at build time (see Dockerfile).
@@ -64,6 +66,11 @@ func main() {
 			slog.Error("prompts failed", "error", err)
 			os.Exit(1)
 		}
+	case "skills":
+		if err := skillsSeed(); err != nil {
+			slog.Error("skills failed", "error", err)
+			os.Exit(1)
+		}
 	case "migrate":
 		if err := migrate(args); err != nil {
 			slog.Error("migrate failed", "error", err)
@@ -72,7 +79,7 @@ func main() {
 	case "version":
 		fmt.Println(version)
 	default:
-		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|set|get}|permissions seed|agent-types seed|prompts seed|migrate {up|status}|version]\n")
+		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|set|get}|permissions seed|agent-types seed|prompts seed|skills seed|migrate {up|status}|version]\n")
 		os.Exit(2)
 	}
 }
@@ -102,7 +109,7 @@ func serve() error {
 		return bus.ClearAgentTypeRefs(ctx, typeID)
 	})
 
-	handler := server.New(cfg, st).WithCatalog(st).Handler()
+	handler := server.New(cfg, st).WithCatalog(st).WithBus(bus).Handler()
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           handler,
@@ -377,5 +384,48 @@ func applyMigrations(st *store.Store) error {
 	if len(ran) > 0 {
 		slog.Info("applied migrations", "count", len(ran))
 	}
+	return nil
+}
+
+// skillsSeed upserts the read-only skill packages this binary ships. It is
+// idempotent: content is replaced only when the bundle version advances, and
+// per-type baselines and per-user acknowledgements are preserved.
+func skillsSeed() error {
+	cfg := config.Load()
+	st, err := store.Open(cfg.MongoURI)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = st.Close() }()
+
+	if err := applyMigrations(st); err != nil {
+		return err
+	}
+
+	bundled, err := skillbundle.Load()
+	if err != nil {
+		return fmt.Errorf("load skill bundle: %w", err)
+	}
+	defs := make([]nanoprotocol.SkillDef, 0, len(bundled))
+	for _, b := range bundled {
+		defs = append(defs, nanoprotocol.SkillDef{
+			ID:               store.BundledSkillID(b.Name),
+			Scope:            "platform",
+			Name:             b.Name,
+			Description:      b.Description,
+			Files:            b.Files,
+			Origin:           "bundled",
+			Status:           "published",
+			Version:          b.Version,
+			PublishedVersion: b.Version,
+			ContentHash:      b.ContentHash,
+			CreatedBy:        "nanoadmin",
+		})
+	}
+	inserted, updated, err := st.SeedPlatformSkills(defs)
+	if err != nil {
+		return fmt.Errorf("seed skills: %w", err)
+	}
+	fmt.Printf("Seeded %d bundled skill(s) (%d new, %d updated).\n", len(defs), inserted, updated)
 	return nil
 }
