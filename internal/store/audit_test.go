@@ -315,6 +315,35 @@ func TestAuditManifest_DeclaresTheListIndex(t *testing.T) {
 	})
 }
 
+// assertIndexUnique checks that one named index is unique — a constraint rather
+// than an optimisation, and not something the key-order check can see.
+func assertIndexUnique(t *testing.T, coll *mongo.Collection, name string) {
+	t.Helper()
+
+	cur, err := coll.Indexes().List(context.Background())
+	if err != nil {
+		t.Fatalf("list indexes on %s: %v", coll.Name(), err)
+	}
+	type indexDoc struct {
+		Name   string `bson:"name"`
+		Unique bool   `bson:"unique"`
+	}
+	for cur.Next(context.Background()) {
+		var doc indexDoc
+		if err := cur.Decode(&doc); err != nil {
+			t.Fatalf("decode index: %v", err)
+		}
+		if doc.Name != name {
+			continue
+		}
+		if !doc.Unique {
+			t.Fatalf("index %s on %s is not unique", name, coll.Name())
+		}
+		return
+	}
+	t.Fatalf("index %s is missing from the applied manifests on %s", name, coll.Name())
+}
+
 // assertIndexKeys checks that one named index exists with exactly the given key
 // order. Decoded into a concrete type rather than bson.M: how the driver
 // represents a nested document is its business, and asserting on that would make

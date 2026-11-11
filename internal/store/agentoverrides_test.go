@@ -359,6 +359,9 @@ func TestSetModeCapability_Upserts(t *testing.T) {
 // rules it shows are the rules that get stored.
 func TestSetModePermissions_ReplacesTheList(t *testing.T) {
 	s := testStore(t)
+	// The rules name permissions, so the catalog has to exist: an empty one is a
+	// seeding failure and saving against it would be refused.
+	seedPermissionCatalog(t, s)
 
 	if err := s.SetModePermissions("agent-1", "build", []nanoprotocol.PermissionRule{
 		{Pattern: "bash", Action: nanoprotocol.PermissionAsk},

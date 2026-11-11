@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"gitee.com/kobeyoung81/nanoadmin/internal/permissionkeys"
 	"gitee.com/kobeyoung81/nanoprotocol"
 )
 
@@ -81,6 +82,11 @@ func TestInternalPatchModeOverride_RejectsAMalformedCall(t *testing.T) {
 // endpoint.
 func TestInternalSetModePermissions_ReplacesOrAppends(t *testing.T) {
 	s, st := testCatalogServer(t)
+	// The rules name permissions, so the catalog has to exist (admin-init seeds
+	// it before the service starts).
+	if _, err := st.SeedPermissionKeys(permissionkeys.Keys()); err != nil {
+		t.Fatalf("seed permission keys: %v", err)
+	}
 
 	rec := postPermissions(t, s, "agent-1", `{"type_id":"build","permissions":[{"pattern":"bash","action":"ask"}]}`)
 	if rec.Code != http.StatusOK {

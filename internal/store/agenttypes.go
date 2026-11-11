@@ -752,9 +752,19 @@ func (s *Store) readOnlyPermissionKeys() (map[string]nanoprotocol.PermissionActi
 // wins) action, so a wildcard baseline such as "*": deny is also rejected unless
 // the read-only keys are explicitly re-allowed after it.
 func (s *Store) validateReadOnlyRules(rules []nanoprotocol.PermissionRule) error {
+	if len(rules) == 0 {
+		return nil
+	}
 	keys, err := s.readOnlyPermissionKeys()
 	if err != nil {
 		return err
+	}
+	// An empty catalog is a seeding failure, not "nothing is locked": accepting
+	// a policy against it would let a read-only tool be relaxed while the
+	// catalog is missing. The bus refused the same way when it asked for the
+	// keys over HTTP.
+	if len(keys) == 0 {
+		return fmt.Errorf("the permission key catalog is empty: seed it before saving a policy")
 	}
 	for id, required := range keys {
 		if got := nanoprotocol.EffectivePermission(id, rules); got != required {
