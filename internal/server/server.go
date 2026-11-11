@@ -174,6 +174,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/config-updated-at/{component}", s.restConfigUpdatedAt)
 	mux.HandleFunc("GET /api/v1/config-counts/{component}", s.restCountConfigItems)
 
+	// The audit trail. The console reads it here; every module appends through
+	// the internal face (the bus and the portal both post an entry).
+	mux.HandleFunc("GET /api/v1/audit", s.restListAudit)
+	mux.HandleFunc("POST /api/v1/internal/audit", s.internalRecordAudit)
+
 	return s.key.Guard(mux, func(r *http.Request) bool {
 		return strings.HasPrefix(r.URL.Path, "/api/v1/")
 	})

@@ -2,7 +2,10 @@
 //
 // It writes only the admin_ prefix (and the shared sys_migrations bookkeeping).
 // Everything else it needs — a user's identity, an agent's ownership — is asked
-// over HTTP, so this package never learns another module's schema.
+// over HTTP, so this package never learns another module's schema. The one
+// exception is the audit trail: its listing resolves display names from the
+// collections that own them (see names.go), read-only, because a per-page fan
+// out to three modules to render a name is worse than three indexed lookups.
 package store
 
 import (
