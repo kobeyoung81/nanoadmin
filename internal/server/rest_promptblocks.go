@@ -81,4 +81,3 @@ func (s *Server) restSavePromptBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"block": body.Block, "status": "saved"})
 }
-
