@@ -2,7 +2,11 @@ package server
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
+
+	"gitee.com/kobeyoung81/nanoadmin/internal/store"
+	"gitee.com/kobeyoung81/nanoprotocol"
 )
 
 // Per-(agent, mode) capability attachments. The agent rows and the mode the
@@ -52,4 +56,75 @@ func (s *Server) internalDeleteAgentCapability(w http.ResponseWriter, r *http.Re
 	}
 	s.notifyCapabilitiesChanged(body.Kind)
 	writeJSON(w, http.StatusOK, map[string]string{"agent_id": agentID, "status": "deleted"})
+}
+
+// The scalar half of one mode's override (model, thinking level, settings).
+// Ownership and the accepted thinking levels are the bus's checks — it serves
+// the user plane — so this face takes the patch it has already validated.
+
+type modeOverrideBody struct {
+	ModelID      *int64             `json:"model_id"`
+	ClearModelID bool               `json:"clear_model_id"`
+	Thinking     *string            `json:"thinking"`
+	Settings     *map[string]string `json:"settings"`
+}
+
+func (s *Server) internalPatchModeOverride(w http.ResponseWriter, r *http.Request) {
+	agentID := r.PathValue("agentID")
+	typeID := r.PathValue("typeID")
+	if agentID == "" || typeID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "agent and type are required"})
+		return
+	}
+	var body modeOverrideBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if err := s.catalog.PatchAgentTypeOverride(agentID, typeID, store.ModeOverridePatch{
+		ModelID: body.ModelID, ClearModelID: body.ClearModelID,
+		Thinking: body.Thinking, Settings: body.Settings,
+	}); err != nil {
+		slog.Error("patch mode override", "agent", agentID, "type", typeID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"agent_id": agentID, "type_id": typeID, "status": "updated"})
+}
+
+// One mode's permission rules. `append` adds or replaces one rule at a time (the
+// agent runtime's message); without it the list replaces what is stored (the
+// console's form).
+
+type modePermissionsBody struct {
+	TypeID      string                        `json:"type_id"`
+	Permissions []nanoprotocol.PermissionRule `json:"permissions"`
+	Append      bool                          `json:"append"`
+}
+
+func (s *Server) internalSetModePermissions(w http.ResponseWriter, r *http.Request) {
+	agentID := r.PathValue("agentID")
+	var body modePermissionsBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if agentID == "" || body.TypeID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "agent and type are required"})
+		return
+	}
+	if body.Append {
+		for _, rule := range body.Permissions {
+			if err := s.catalog.AppendModePermission(agentID, body.TypeID, rule); err != nil {
+				slog.Error("append mode permission", "agent", agentID, "type", body.TypeID, "error", err)
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+	} else if err := s.catalog.SetModePermissions(agentID, body.TypeID, body.Permissions); err != nil {
+		slog.Error("set mode permissions", "agent", agentID, "type", body.TypeID, "error", err)
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"agent_id": agentID, "type_id": body.TypeID, "status": "updated"})
 }

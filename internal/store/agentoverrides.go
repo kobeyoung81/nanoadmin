@@ -161,6 +161,47 @@ func (s *Store) SetAgentTypeOverride(agentID, typeID string, ov nanoprotocol.Age
 	return nil
 }
 
+// ModeOverridePatch is the scalar half of one mode override as the user plane
+// sends it: what a request may set, and the one field it may clear. The
+// permission and capability lists have their own writes.
+type ModeOverridePatch struct {
+	ModelID      *int64
+	ClearModelID bool
+	Thinking     *string
+	Settings     *map[string]string
+}
+
+// PatchAgentTypeOverride applies that patch to the stored override, creating one
+// when none exists.
+//
+// The read-modify-write happens here rather than in the caller: the document is
+// this module's, and a merge spread across two services would race with itself
+// and let a stale read clobber a concurrent write.
+func (s *Store) PatchAgentTypeOverride(agentID, typeID string, p ModeOverridePatch) error {
+	if agentID == "" || typeID == "" {
+		return fmt.Errorf("agent_id and type_id are required")
+	}
+	ov, err := s.GetAgentTypeOverride(agentID, typeID)
+	if err != nil {
+		return err
+	}
+	if ov == nil {
+		ov = &nanoprotocol.AgentTypeOverride{}
+	}
+	if p.ClearModelID {
+		ov.ModelID = 0
+	} else if p.ModelID != nil {
+		ov.ModelID = *p.ModelID
+	}
+	if p.Thinking != nil {
+		ov.Thinking = *p.Thinking
+	}
+	if p.Settings != nil {
+		ov.Settings = *p.Settings
+	}
+	return s.SetAgentTypeOverride(agentID, typeID, *ov)
+}
+
 func storedCapabilityAttachments(caps []nanoprotocol.CapabilityAttachment) []storedCapabilityAttachment {
 	if len(caps) == 0 {
 		return nil

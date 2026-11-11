@@ -167,6 +167,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/internal/agents/{agentID}/capabilities", s.internalSetAgentCapability)
 	mux.HandleFunc("POST /api/v1/internal/agents/{agentID}/capabilities/delete", s.internalDeleteAgentCapability)
 
+	// Per-(agent, mode) writes: the override document is this module's, and the
+	// bus forwards once it has decided what the caller meant (owner, mode).
+	mux.HandleFunc("PUT /api/v1/internal/agents/{agentID}/modes/{typeID}", s.internalPatchModeOverride)
+	mux.HandleFunc("POST /api/v1/internal/agents/{agentID}/permissions", s.internalSetModePermissions)
+
 	mux.HandleFunc("GET /api/v1/permission-keys", s.restListPermissionKeys)
 	mux.HandleFunc("GET /api/v1/alert-rules", s.restListAlertRules)
 	mux.HandleFunc("POST /api/v1/alert-rules", s.restUpsertAlertRule)
