@@ -140,6 +140,18 @@ func (s *Server) Handler() http.Handler {
 	// The skill catalogue: the console manages definitions, users manage their own,
 	// and the agent runtime's save/delete/ack arrive through the internal face
 	// (the bus forwards them).
+	mux.HandleFunc("GET /api/v1/capabilities/mcp", s.restListMcpAdmin)
+	mux.HandleFunc("POST /api/v1/capabilities/mcp", s.restCreateMcpAdmin)
+	mux.HandleFunc("POST /api/v1/capabilities/mcp/test", s.restTestMcpAdmin)
+	mux.HandleFunc("PUT /api/v1/capabilities/mcp/{id}", s.restUpdateMcpAdmin)
+	mux.HandleFunc("PUT /api/v1/capabilities/mcp/{id}/state", s.restUpdateMcpState)
+	mux.HandleFunc("DELETE /api/v1/capabilities/mcp/{id}", s.restDeleteMcpAdmin)
+	mux.HandleFunc("GET /api/v1/user/capabilities/library/mcp", s.restListMyMcp)
+	mux.HandleFunc("POST /api/v1/user/capabilities/library/mcp", s.restCreateMyMcp)
+	mux.HandleFunc("POST /api/v1/user/capabilities/library/mcp/test", s.restTestMcpMy)
+	mux.HandleFunc("PUT /api/v1/user/capabilities/library/mcp/{id}", s.restUpdateMyMcp)
+	mux.HandleFunc("DELETE /api/v1/user/capabilities/library/mcp/{id}", s.restDeleteMyMcp)
+
 	mux.HandleFunc("GET /api/v1/capabilities/skills", s.restListSkillsAdmin)
 	mux.HandleFunc("POST /api/v1/capabilities/skills", s.restCreateSkillAdmin)
 	mux.HandleFunc("PUT /api/v1/capabilities/skills/{id}", s.restUpdateSkillAdmin)
@@ -152,6 +164,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/internal/skills/save", s.internalSkillSave)
 	mux.HandleFunc("POST /api/v1/internal/skills/delete", s.internalSkillDelete)
 	mux.HandleFunc("POST /api/v1/internal/skills/ack", s.internalSkillAck)
+	mux.HandleFunc("POST /api/v1/internal/agents/{agentID}/capabilities", s.internalSetAgentCapability)
+	mux.HandleFunc("POST /api/v1/internal/agents/{agentID}/capabilities/delete", s.internalDeleteAgentCapability)
 
 	mux.HandleFunc("GET /api/v1/permission-keys", s.restListPermissionKeys)
 	mux.HandleFunc("GET /api/v1/alert-rules", s.restListAlertRules)

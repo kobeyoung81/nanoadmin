@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -71,6 +72,11 @@ func main() {
 			slog.Error("skills failed", "error", err)
 			os.Exit(1)
 		}
+	case "mcp":
+		if err := mcpSeed(); err != nil {
+			slog.Error("mcp failed", "error", err)
+			os.Exit(1)
+		}
 	case "migrate":
 		if err := migrate(args); err != nil {
 			slog.Error("migrate failed", "error", err)
@@ -79,7 +85,7 @@ func main() {
 	case "version":
 		fmt.Println(version)
 	default:
-		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|set|get}|permissions seed|agent-types seed|prompts seed|skills seed|migrate {up|status}|version]\n")
+		fmt.Fprintf(os.Stderr, "usage: nanoadmin [serve|config {seed|set|get}|permissions seed|agent-types seed|prompts seed|skills seed|mcp seed|migrate {up|status}|version]\n")
 		os.Exit(2)
 	}
 }
@@ -427,5 +433,45 @@ func skillsSeed() error {
 		return fmt.Errorf("seed skills: %w", err)
 	}
 	fmt.Printf("Seeded %d bundled skill(s) (%d new, %d updated).\n", len(defs), inserted, updated)
+	return nil
+}
+
+// mcpSeed inserts the first-party MCP servers this deployment ships. An existing
+// row is left exactly as it is: URL, headers and defaults are admin-editable.
+func mcpSeed() error {
+	cfg := config.Load()
+	st, err := store.Open(cfg.MongoURI)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = st.Close() }()
+	if err := applyMigrations(st); err != nil {
+		return err
+	}
+
+	token := strings.TrimSpace(os.Getenv("NANOSEC_BUS_INTERNAL_TOKEN"))
+	if token == "" {
+		return fmt.Errorf("NANOSEC_BUS_INTERNAL_TOKEN is required to seed the MCP row")
+	}
+	endpoint := strings.TrimSpace(os.Getenv("NANOARTIFACTS_MCP_URL"))
+	if endpoint == "" {
+		endpoint = "http://nanoartifacts:8080/mcp"
+	}
+	inserted, err := st.SeedMcpServer(store.McpServerRecord{
+		Capability: store.Capability{
+			ID: "mcp:nanoartifacts", Scope: "platform", Name: "nanoartifacts",
+			Description: "The platform's own work library.", DefaultEnabled: true,
+		},
+		Transport: "http", URL: endpoint,
+		Headers: map[string]string{"Authorization": "Bearer " + token},
+	})
+	if err != nil {
+		return fmt.Errorf("seed mcp: %w", err)
+	}
+	if inserted {
+		fmt.Println("Seeded the first-party MCP server.")
+	} else {
+		fmt.Println("The first-party MCP server is already present; left untouched.")
+	}
 	return nil
 }
