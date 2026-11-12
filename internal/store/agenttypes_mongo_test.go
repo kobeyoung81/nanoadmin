@@ -36,8 +36,6 @@ func seedPermissionCatalog(t *testing.T, s *Store) {
 	}
 }
 
-
-
 func TestSaveAgentType_RoundTripsTheAggregate(t *testing.T) {
 	s := testStore(t)
 	seedPermissionCatalog(t, s)
