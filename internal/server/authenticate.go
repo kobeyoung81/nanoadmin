@@ -20,7 +20,9 @@ import (
 // service-to-service operations with no browser meaning.
 func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/api/v1/") {
+		// /healthz is the only open path; both API namespaces are guarded — the
+		// internal one (/api/v1/) and the console's (/api/admin/v1/).
+		if !strings.HasPrefix(r.URL.Path, "/api/v1/") && !strings.HasPrefix(r.URL.Path, "/api/admin/v1/") {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -68,7 +70,7 @@ func mayCall(r *http.Request, role string) bool {
 	if strings.HasPrefix(r.URL.Path, "/api/v1/user/") {
 		return auth.KnownRole(role)
 	}
-	if r.Method == http.MethodGet && r.URL.Path == "/api/v1/audit" {
+	if r.Method == http.MethodGet && (r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/admin/v1/audit") {
 		return auth.MayReadAudit(role)
 	}
 	return auth.MayUseCatalogue(role)
