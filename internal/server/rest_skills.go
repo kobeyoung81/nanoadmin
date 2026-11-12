@@ -218,7 +218,7 @@ func (s *Server) restDeleteSkillAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) restListMySkills(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -237,7 +237,7 @@ func (s *Server) restListMySkills(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) restCreateMySkill(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -270,7 +270,7 @@ func (s *Server) restCreateMySkill(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) restUpdateMySkill(w http.ResponseWriter, r *http.Request) {
-	userID, id := userIDFromQuery(r), r.PathValue("id")
+	userID, id := s.actingUser(r), r.PathValue("id")
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -309,7 +309,7 @@ func (s *Server) restUpdateMySkill(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) restDeleteMySkill(w http.ResponseWriter, r *http.Request) {
-	userID, id := userIDFromQuery(r), r.PathValue("id")
+	userID, id := s.actingUser(r), r.PathValue("id")
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return

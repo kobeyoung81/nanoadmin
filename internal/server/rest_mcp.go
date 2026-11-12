@@ -196,7 +196,7 @@ func (s *Server) restTestMcpAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) restTestMcpMy(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -255,7 +255,7 @@ func (s *Server) restDeleteMcpAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) restListMyMcp(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -275,7 +275,7 @@ func (s *Server) restListMyMcp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) restCreateMyMcp(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -300,7 +300,7 @@ func (s *Server) restCreateMyMcp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) restUpdateMyMcp(w http.ResponseWriter, r *http.Request) {
-	userID, id := userIDFromQuery(r), r.PathValue("id")
+	userID, id := s.actingUser(r), r.PathValue("id")
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -328,7 +328,7 @@ func (s *Server) restUpdateMyMcp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) restDeleteMyMcp(w http.ResponseWriter, r *http.Request) {
-	userID, id := userIDFromQuery(r), r.PathValue("id")
+	userID, id := s.actingUser(r), r.PathValue("id")
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return

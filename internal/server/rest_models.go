@@ -257,7 +257,7 @@ func (s *Server) restDeleteModelAdmin(w http.ResponseWriter, r *http.Request) {
 // ======== user (owner-scoped) route handlers ========
 
 func (s *Server) restListMyModels(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -265,7 +265,7 @@ func (s *Server) restListMyModels(w http.ResponseWriter, r *http.Request) {
 	s.listCatalog(w, userID)
 }
 func (s *Server) restCreateMyProvider(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -273,7 +273,7 @@ func (s *Server) restCreateMyProvider(w http.ResponseWriter, r *http.Request) {
 	s.createProvider(w, r, "user", userID)
 }
 func (s *Server) restUpdateMyProvider(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -281,7 +281,7 @@ func (s *Server) restUpdateMyProvider(w http.ResponseWriter, r *http.Request) {
 	s.updateProvider(w, r, userID)
 }
 func (s *Server) restDeleteMyProvider(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -289,7 +289,7 @@ func (s *Server) restDeleteMyProvider(w http.ResponseWriter, r *http.Request) {
 	s.deleteProvider(w, r, userID)
 }
 func (s *Server) restCreateMyModel(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -297,7 +297,7 @@ func (s *Server) restCreateMyModel(w http.ResponseWriter, r *http.Request) {
 	s.createModel(w, r, "user", userID)
 }
 func (s *Server) restUpdateMyModel(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -305,7 +305,7 @@ func (s *Server) restUpdateMyModel(w http.ResponseWriter, r *http.Request) {
 	s.updateModel(w, r, userID)
 }
 func (s *Server) restDeleteMyModel(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -451,7 +451,7 @@ func (s *Server) restTestModelAdmin(w http.ResponseWriter, r *http.Request) {
 	s.testModel(w, r, "")
 }
 func (s *Server) restTestProviderMy(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
@@ -459,7 +459,7 @@ func (s *Server) restTestProviderMy(w http.ResponseWriter, r *http.Request) {
 	s.testProvider(w, r, userID)
 }
 func (s *Server) restTestModelMy(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromQuery(r)
+	userID := s.actingUser(r)
 	if userID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return

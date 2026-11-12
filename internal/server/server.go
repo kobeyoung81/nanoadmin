@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
+	"gitee.com/kobeyoung81/nanoadmin/internal/auth"
 	"gitee.com/kobeyoung81/nanoadmin/internal/busclient"
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
@@ -39,6 +39,9 @@ type Server struct {
 	// methods the small ConfigStore interface does not carry.
 	catalog *store.Store
 	key     *InternalKey
+	// jwt verifies browser tokens. It is nil when no JWKS URL is configured, in
+	// which case only the internal token is accepted.
+	jwt *auth.Validator
 	// bus carries the few notifications the catalogue writes need (the agent
 	// supervisors listen to the bus's SSE stream, not to this service).
 	bus *busclient.Client
@@ -46,7 +49,12 @@ type Server struct {
 
 // New builds a server.
 func New(cfg config.Config, st ConfigStore) *Server {
-	return &Server{cfg: cfg, store: st, key: NewInternalKey(cfg.InternalToken)}
+	return &Server{
+		cfg:   cfg,
+		store: st,
+		key:   NewInternalKey(cfg.InternalToken),
+		jwt:   auth.NewValidator(cfg.JWKSURL),
+	}
 }
 
 // WithCatalog attaches the concrete store the catalogue handlers need. Tests
@@ -184,9 +192,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/audit", s.restListAudit)
 	mux.HandleFunc("POST /api/v1/internal/audit", s.internalRecordAudit)
 
-	return s.key.Guard(mux, func(r *http.Request) bool {
-		return strings.HasPrefix(r.URL.Path, "/api/v1/")
-	})
+	return s.authenticate(mux)
 }
 
 func (s *Server) restListConfigComponents(w http.ResponseWriter, r *http.Request) {
@@ -210,6 +216,9 @@ func (s *Server) restGetConfig(w http.ResponseWriter, r *http.Request) {
 	if items == nil {
 		items = []store.ConfigItem{}
 	}
+	if wantsMaskedValues(r) {
+		items = maskItems(items)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"component_type": component, "items": items})
 }
 
@@ -225,6 +234,9 @@ func (s *Server) restGetConfigItem(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		return
+	}
+	if wantsMaskedValues(r) {
+		item = maskItems([]store.ConfigItem{item})[0]
 	}
 	writeJSON(w, http.StatusOK, item)
 }
@@ -339,6 +351,17 @@ func (s *Server) restSetConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	// A form that read a masked secret sends the mask back untouched; writing it
+	// would replace a live key with three asterisks.
+	if body.Value == maskValue {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"component_type": component,
+			"key":            key,
+			"value":          maskValue,
+			"unchanged":      true,
+		})
 		return
 	}
 	if err := s.store.SetConfigItemTyped(component, key, body.Value, body.ValueType, body.Description); err != nil {
