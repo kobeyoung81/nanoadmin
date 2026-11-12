@@ -16,14 +16,11 @@ func TestDefaultConfigItems_VoiceComponent(t *testing.T) {
 		// Off until an operator attaches a provider: an enabled-but-unconfigured
 		// voice would show a microphone that cannot work.
 		"enabled":                   "false",
-		"realtime.engine":           "local",
 		"realtime.providerId":       "",
 		"realtime.model":            "",
 		"realtime.language":         "zh",
 		"realtime.maxSeconds":       "120",
 		"realtime.commitIntervalMs": "0",
-		"realtime.audioRate":        "24000",
-		"realtime.hotwords":         "",
 		// The batch tier is off until a provider is attached; when it is turned
 		// on it re-transcribes every take, which is what makes the accuracy
 		// claim real by default.
