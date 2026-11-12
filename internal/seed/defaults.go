@@ -68,6 +68,9 @@ func DefaultConfigItems() map[string][]store.ConfigItem {
 			// deployment. Seeded so an operator can change it in the config center;
 			// the runner re-reads it before every provisioning.
 			ci("runner.agentTimezone", "Asia/Shanghai", "string", "IANA timezone injected as TZ into agent containers (empty = UTC)"),
+			// Tunnels terminate at the provisioner now; containers dial this instead
+			// of the bus, so a tunnel survives losing the replica that served it.
+			ci("runner.tunnelUrl", "ws://nanorunner:8080", "string", "Where agent containers dial the hypervisor tunnel (empty = the bus URL)"),
 			ci("runner.quota.free.memory", "512", "int", "Free tier memory limit (MB)"),
 			ci("runner.quota.free.cpu", "1000000000", "int", "Free tier CPU limit (nanoCPUs)"),
 			ci("runner.quota.pro.memory", "2048", "int", "Pro tier memory limit (MB)"),
