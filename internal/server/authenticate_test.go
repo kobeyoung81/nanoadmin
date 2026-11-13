@@ -305,3 +305,24 @@ func (r *recordingStore) SetConfigItemTyped(_, _, _, _, _ string) error {
 func stringsContains(haystack, needle string) bool { return strings.Contains(haystack, needle) }
 
 func stringsReader(s string) *strings.Reader { return strings.NewReader(s) }
+
+// TestAuthenticate_CanonicalConsolePrefixKeepsTheSamePolicy: /api/v1/admin/ is
+// the target-state console namespace. It must carry exactly the policy of the
+// historical /api/admin/v1/, including the auditor's audit-only rule — a page
+// that moves prefixes must not silently change who may call it.
+func TestAuthenticate_CanonicalConsolePrefixKeepsTheSamePolicy(t *testing.T) {
+	s, key := newAuthServer(t)
+
+	if rec := doAuthRequest(t, s, http.MethodGet, "/api/v1/admin/configs", signToken(t, key, "admin-1", auth.RoleAdmin)); rec.Code != http.StatusOK {
+		t.Fatalf("admin console: status = %d, want 200", rec.Code)
+	}
+	if rec := doAuthRequest(t, s, http.MethodGet, "/api/v1/admin/configs", signToken(t, key, "auditor-1", auth.RoleAuditor)); rec.Code != http.StatusForbidden {
+		t.Fatalf("auditor console: status = %d, want 403", rec.Code)
+	}
+	if rec := doAuthRequest(t, s, http.MethodGet, "/api/v1/admin/configs", signToken(t, key, "user-1", auth.RoleUser)); rec.Code != http.StatusForbidden {
+		t.Fatalf("user console: status = %d, want 403", rec.Code)
+	}
+	if rec := doAuthRequest(t, s, http.MethodGet, "/api/v1/admin/audit", signToken(t, key, "auditor-1", auth.RoleAuditor)); rec.Code != http.StatusOK {
+		t.Fatalf("auditor audit: status = %d, want 200", rec.Code)
+	}
+}

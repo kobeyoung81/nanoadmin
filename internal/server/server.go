@@ -192,8 +192,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/audit", s.restListAudit)
 	mux.HandleFunc("POST /api/v1/internal/audit", s.internalRecordAudit)
 
-	// The console's namespace: nginx routes /api/admin/v1/ here.
-	s.registerConsoleRoutes(mux)
+	// The console's namespace, under both the historical prefix (nginx routes
+	// /api/admin/v1/ here) and the target-state one (/api/v1/admin/, one
+	// namespace per module). Same handlers, same shapes.
+	s.registerConsoleRoutes(mux, "/api/admin/v1")
+	s.registerConsoleRoutes(mux, "/api/v1/admin")
 
 	return s.authenticate(mux)
 }

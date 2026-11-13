@@ -21,7 +21,8 @@ import (
 func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// /healthz is the only open path; both API namespaces are guarded — the
-		// internal one (/api/v1/) and the console's (/api/admin/v1/).
+		// module API (/api/v1/, which also contains /api/v1/admin/) and the
+		// console's historical prefix (/api/admin/v1/).
 		if !strings.HasPrefix(r.URL.Path, "/api/v1/") && !strings.HasPrefix(r.URL.Path, "/api/admin/v1/") {
 			next.ServeHTTP(w, r)
 			return
@@ -70,7 +71,12 @@ func mayCall(r *http.Request, role string) bool {
 	if strings.HasPrefix(r.URL.Path, "/api/v1/user/") {
 		return auth.KnownRole(role)
 	}
-	if r.Method == http.MethodGet && (r.URL.Path == "/api/v1/audit" || r.URL.Path == "/api/admin/v1/audit") {
+	// The audit trail is readable by auditors. Both console prefixes carry it:
+	// the historical /api/admin/v1/ and the target-state /api/v1/admin/.
+	audit := r.URL.Path == "/api/v1/audit" ||
+		r.URL.Path == "/api/admin/v1/audit" ||
+		r.URL.Path == "/api/v1/admin/audit"
+	if r.Method == http.MethodGet && audit {
 		return auth.MayReadAudit(role)
 	}
 	return auth.MayUseCatalogue(role)

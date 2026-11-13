@@ -102,3 +102,31 @@ func TestConsoleListAlertRules_IsAnArray(t *testing.T) {
 		t.Fatalf("rules = %+v", out)
 	}
 }
+
+// TestConsoleIsServedUnderBothPrefixes pins the alias: the console's historical
+// /api/admin/v1/ and the target-state /api/v1/admin/ reach the same handlers
+// with the same shapes, so a page can be migrated one route at a time.
+func TestConsoleIsServedUnderBothPrefixes(t *testing.T) {
+	s := New(config.Config{InternalToken: "s3cret"}, fakeStore{components: []string{"agent", "auth"}})
+	h := s.Handler()
+
+	for _, prefix := range []string{"/api/admin/v1", "/api/v1/admin"} {
+		req := httptest.NewRequest(http.MethodGet, prefix+"/configs", nil)
+		req.Header.Set("Authorization", "Bearer s3cret")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s/configs: status = %d, want 200 (%s)", prefix, rec.Code, rec.Body.String())
+		}
+		var out []struct {
+			ComponentType string `json:"component_type"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatalf("%s: decode: %v", prefix, err)
+		}
+		if len(out) != 2 {
+			t.Fatalf("%s: summaries = %+v", prefix, out)
+		}
+	}
+}
