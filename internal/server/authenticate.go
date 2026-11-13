@@ -71,6 +71,12 @@ func mayCall(r *http.Request, role string) bool {
 	if strings.HasPrefix(r.URL.Path, "/api/v1/user/") {
 		return auth.KnownRole(role)
 	}
+	// Container lifecycle is an Operations action: support may restart or
+	// dispose a container, operators manage the catalogue instead. Both console
+	// prefixes carry the routes, so both carry the policy.
+	if isContainerActionPath(r.URL.Path) {
+		return auth.MayOperateContainers(role)
+	}
 	// The audit trail is readable by auditors. Both console prefixes carry it:
 	// the historical /api/admin/v1/ and the target-state /api/v1/admin/.
 	audit := r.URL.Path == "/api/v1/audit" ||
@@ -80,6 +86,22 @@ func mayCall(r *http.Request, role string) bool {
 		return auth.MayReadAudit(role)
 	}
 	return auth.MayUseCatalogue(role)
+}
+
+// isContainerActionPath reports whether the request is one of the console's
+// container lifecycle actions.
+func isContainerActionPath(path string) bool {
+	rest, ok := strings.CutPrefix(path, "/api/v1/admin/containers/")
+	if !ok {
+		rest, ok = strings.CutPrefix(path, "/api/admin/v1/containers/")
+	}
+	if !ok {
+		return false
+	}
+	// {userID}/{action}: the action is the last segment.
+	return strings.HasSuffix(rest, "/restart") ||
+		strings.HasSuffix(rest, "/dispose") ||
+		strings.HasSuffix(rest, "/reprovision")
 }
 
 // actingUser is the user a user-facing call works for. A token's subject wins

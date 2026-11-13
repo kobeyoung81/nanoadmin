@@ -95,6 +95,13 @@ func MayUseCatalogue(role string) bool {
 	return role == RoleAdmin || role == RoleOperator
 }
 
+// MayOperateContainers is the console's Operations policy for container
+// lifecycle actions: restarting or disposing a container is support work, so it
+// carries the same roles the portal's Operations section had.
+func MayOperateContainers(role string) bool {
+	return role == RoleAdmin || role == RoleSupport
+}
+
 // MayReadAudit is the Audit section's policy.
 func MayReadAudit(role string) bool {
 	return role == RoleAdmin || role == RoleAuditor

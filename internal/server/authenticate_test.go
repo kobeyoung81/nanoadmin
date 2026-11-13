@@ -326,3 +326,27 @@ func TestAuthenticate_CanonicalConsolePrefixKeepsTheSamePolicy(t *testing.T) {
 		t.Fatalf("auditor audit: status = %d, want 200", rec.Code)
 	}
 }
+
+// TestAuthenticate_ContainerActionsFollowTheOperationsPolicy: the console's
+// restart/dispose/reprovision carry the Operations policy (admin and support),
+// the same roles the portal section had — and adding them must not widen the
+// catalogue's policy to support.
+func TestAuthenticate_ContainerActionsFollowTheOperationsPolicy(t *testing.T) {
+	s, key := newAuthServer(t)
+
+	for _, role := range []string{auth.RoleAdmin, auth.RoleSupport} {
+		for _, path := range []string{"/api/v1/admin/containers/u1/restart", "/api/admin/v1/containers/u1/dispose"} {
+			if rec := doAuthRequest(t, s, http.MethodPost, path, signToken(t, key, "u-"+role, role)); rec.Code != http.StatusOK {
+				t.Fatalf("%s %s: status = %d, want 200", role, path, rec.Code)
+			}
+		}
+	}
+	for _, role := range []string{auth.RoleOperator, auth.RoleUser, auth.RoleAuditor} {
+		if rec := doAuthRequest(t, s, http.MethodPost, "/api/v1/admin/containers/u1/restart", signToken(t, key, "u-"+role, role)); rec.Code != http.StatusForbidden {
+			t.Fatalf("%s: status = %d, want 403", role, rec.Code)
+		}
+	}
+	if rec := doAuthRequest(t, s, http.MethodGet, "/api/v1/admin/configs", signToken(t, key, "u-support", auth.RoleSupport)); rec.Code != http.StatusForbidden {
+		t.Fatalf("support reached the catalogue: status = %d, want 403", rec.Code)
+	}
+}

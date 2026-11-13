@@ -23,6 +23,7 @@ import (
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
 	"gitee.com/kobeyoung81/nanoadmin/internal/permissionkeys"
 	"gitee.com/kobeyoung81/nanoadmin/internal/promptbundle"
+	"gitee.com/kobeyoung81/nanoadmin/internal/provisionerclient"
 	"gitee.com/kobeyoung81/nanoadmin/internal/seed"
 	"gitee.com/kobeyoung81/nanoadmin/internal/server"
 	"gitee.com/kobeyoung81/nanoadmin/internal/skillbundle"
@@ -115,7 +116,11 @@ func serve() error {
 		return bus.ClearAgentTypeRefs(ctx, typeID)
 	})
 
-	handler := server.New(cfg, st).WithCatalog(st).WithBus(bus).Handler()
+	// The container control plane: the console asks this module, which asks the
+	// queue's owner to move the container.
+	provisioner := provisionerclient.New(cfg.ProvisionerURL, cfg.InternalToken)
+
+	handler := server.New(cfg, st).WithCatalog(st).WithBus(bus).WithProvisioner(provisioner).Handler()
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           handler,

@@ -12,6 +12,7 @@ import (
 	"gitee.com/kobeyoung81/nanoadmin/internal/auth"
 	"gitee.com/kobeyoung81/nanoadmin/internal/busclient"
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
+	"gitee.com/kobeyoung81/nanoadmin/internal/provisionerclient"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
 	"gitee.com/kobeyoung81/nanoprotocol"
 )
@@ -38,13 +39,20 @@ type Server struct {
 	// catalog is the same store, typed concretely: the catalogue handlers need
 	// methods the small ConfigStore interface does not carry.
 	catalog *store.Store
-	key     *InternalKey
+	// audit is the trail's writer. It is the same store in production; the
+	// interface exists so a handler test can observe what would have been
+	// written.
+	audit auditRecorder
+	key   *InternalKey
 	// jwt verifies browser tokens. It is nil when no JWKS URL is configured, in
 	// which case only the internal token is accepted.
 	jwt *auth.Validator
 	// bus carries the few notifications the catalogue writes need (the agent
 	// supervisors listen to the bus's SSE stream, not to this service).
 	bus *busclient.Client
+	// provisioner owns the container queue and the runtime API: the console's
+	// restart/dispose/reprovision actions are desired-state writes there.
+	provisioner *provisionerclient.Client
 }
 
 // New builds a server.
@@ -57,16 +65,29 @@ func New(cfg config.Config, st ConfigStore) *Server {
 	}
 }
 
+// auditRecorder is the slice of the store the container actions append to.
+type auditRecorder interface {
+	RecordAudit(entry store.AuditEntry) error
+}
+
 // WithCatalog attaches the concrete store the catalogue handlers need. Tests
 // that only exercise configuration routes leave it nil.
 func (s *Server) WithCatalog(st *store.Store) *Server {
 	s.catalog = st
+	s.audit = st
 	return s
 }
 
 // WithBus attaches the bus client used for capability-change broadcasts.
 func (s *Server) WithBus(bus *busclient.Client) *Server {
 	s.bus = bus
+	return s
+}
+
+// WithProvisioner attaches the client that executes the container lifecycle
+// actions. Without it those routes answer 503 instead of pretending to work.
+func (s *Server) WithProvisioner(c *provisionerclient.Client) *Server {
+	s.provisioner = c
 	return s
 }
 
@@ -197,6 +218,10 @@ func (s *Server) Handler() http.Handler {
 	// namespace per module). Same handlers, same shapes.
 	s.registerConsoleRoutes(mux, "/api/admin/v1")
 	s.registerConsoleRoutes(mux, "/api/v1/admin")
+	// The container control plane: an Operations action, so it has its own role
+	// policy rather than the catalogue's.
+	s.registerContainerRoutes(mux, "/api/admin/v1")
+	s.registerContainerRoutes(mux, "/api/v1/admin")
 
 	return s.authenticate(mux)
 }
