@@ -71,6 +71,8 @@ func DefaultConfigItems() map[string][]store.ConfigItem {
 			// Tunnels terminate at the provisioner now; containers dial this instead
 			// of the bus, so a tunnel survives losing the replica that served it.
 			ci("runner.tunnelUrl", "ws://nanorunner:8080", "string", "Where agent containers dial the hypervisor tunnel (empty = the bus URL)"),
+			// ReadWriteMany only works on a storage class that supports it.
+			ci("runner.storage.accessMode", "", "string", "k8s PVC access mode (empty = ReadWriteOnce; ReadWriteMany needs a compatible class)"),
 			ci("runner.quota.free.memory", "512", "int", "Free tier memory limit (MB)"),
 			ci("runner.quota.free.cpu", "1000000000", "int", "Free tier CPU limit (nanoCPUs)"),
 			ci("runner.quota.pro.memory", "2048", "int", "Pro tier memory limit (MB)"),
