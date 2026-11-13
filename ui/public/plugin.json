@@ -1,0 +1,14 @@
+{
+  "contract": 1,
+  "plugin": "admin",
+  "entry": "/plugins/admin/remoteEntry.js",
+  "panels": [],
+  "pages": [
+    {
+      "id": "runtime",
+      "path": "/admin/runtime",
+      "title": { "zh-CN": "运行状态", "en": "Runtime" },
+      "mount": { "kind": "module", "module": "admin/pages", "export": "RuntimePage" }
+    }
+  ]
+}

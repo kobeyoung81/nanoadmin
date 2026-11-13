@@ -115,6 +115,10 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	// This module's front end, when the image carries one. It is public: the
+	// portal's shell loads it, and the page's data calls carry the user's token.
+	s.registerUIRoutes(mux, s.cfg.UIDir)
+
 	mux.HandleFunc("GET /api/v1/config", s.restListConfigComponents)
 	mux.HandleFunc("GET /api/v1/config/{component}", s.restGetConfig)
 	mux.HandleFunc("GET /api/v1/config/{component}/{key}", s.restGetConfigItem)

@@ -9,3 +9,7 @@ credentials*
 .idea/
 .vscode/
 .DS_Store
+
+# this module's front end
+ui/node_modules/
+ui/dist/

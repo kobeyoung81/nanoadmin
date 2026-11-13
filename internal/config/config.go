@@ -30,6 +30,10 @@ type Config struct {
 	// empty URL leaves only the internal token, which is the rolling-upgrade
 	// case.
 	JWKSURL string
+	// UIDir is the built front end this module contributes to the portal (served
+	// at /plugins/admin/). Empty disables it: the module still works, the portal
+	// then shows its own page.
+	UIDir string
 }
 
 // Load reads the configuration from the environment.
@@ -41,6 +45,7 @@ func Load() Config {
 		ProvisionerURL: env("NANOSEC_ADMIN_PROVISIONER_URL", "http://nanorunner:8080"),
 		InternalToken:  os.Getenv("NANOSEC_BUS_INTERNAL_TOKEN"),
 		JWKSURL:        env("NANOAUTH_JWKS_URL", "http://nanoauth:8081/auth/v1/.well-known/jwks"),
+		UIDir:          env("NANOSEC_ADMIN_UI_DIR", "/app/ui"),
 	}
 }
 
