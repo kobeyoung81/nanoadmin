@@ -16,6 +16,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
+	"gitee.com/kobeyoung81/nanoprotocol"
 )
 
 // testInternalToken is what these tests present on the internal face.
@@ -157,5 +158,85 @@ func TestResolveModeCapabilitiesAnswersTheRequestedMode(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &caps)
 	if caps.AgentType.ID != "plan" {
 		t.Fatalf("expected plan's type, got %q", caps.AgentType.ID)
+	}
+}
+
+// internalGet sends one GET through the internal face with the shared token.
+func internalGet(t *testing.T, srv *httptest.Server, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, srv.URL+path, nil)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+testInternalToken)
+	rec := httptest.NewRecorder()
+	srv.Config.Handler.ServeHTTP(rec, req)
+	return rec
+}
+
+// TestAgentDefaultModelAnswersTheDefaultModesModel is the read the bus's agent list
+// makes for every row: the mode's override wins, the type's default binding
+// otherwise, and the answer carries the mode it resolved.
+func TestAgentDefaultModelAnswersTheDefaultModesModel(t *testing.T) {
+	srv, st := runtimeServer(t)
+	if err := st.SaveAgentType(nanoprotocol.AgentTypeDef{
+		ID: "plan", Name: "Plan", Models: []nanoprotocol.TypeModelBinding{{ModelID: 4, IsDefault: true}},
+	}); err != nil {
+		t.Fatalf("bind a model to plan: %v", err)
+	}
+
+	rec := resolve(t, srv, "/api/v1/internal/agent-default-model", map[string]any{
+		"agent_id": "agent-1", "primary_type": "build", "default_type": "plan",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		TypeID    string `json:"type_id"`
+		ModelID   int64  `json:"model_id"`
+		ModelName string `json:"model_name"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.TypeID != "plan" || body.ModelID != 4 {
+		t.Fatalf("answer = %+v, want plan/4", body)
+	}
+
+	// The agent id is required: without a row there is no override to consult.
+	if rec := resolve(t, srv, "/api/v1/internal/agent-default-model", map[string]any{}); rec.Code != http.StatusBadRequest {
+		t.Fatalf("missing agent id: status = %d, want 400", rec.Code)
+	}
+}
+
+// TestCapabilityVisibleEndpoint is the check the bus makes before it grants a
+// capability to an agent: the answer is the catalogue's, and the request must name
+// the kind, the item and the user.
+func TestCapabilityVisibleEndpoint(t *testing.T) {
+	srv, st := runtimeServer(t)
+	if err := st.CreateSkill(store.SkillRecord{Capability: store.Capability{
+		ID: "skill-mine", Scope: "user", OwnerUserID: "user-1", Name: "mine",
+	}}); err != nil {
+		t.Fatalf("seed skill: %v", err)
+	}
+
+	rec := internalGet(t, srv, "/api/v1/internal/capability-visible?kind=skill&ref=skill-mine&user_id=user-1")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Visible bool `json:"visible"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || !body.Visible {
+		t.Fatalf("visible = %v (err %v), want true", body.Visible, err)
+	}
+
+	rec = internalGet(t, srv, "/api/v1/internal/capability-visible?kind=skill&ref=skill-mine&user_id=user-2")
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Visible {
+		t.Fatalf("another user's skill came back visible: %s", rec.Body.String())
+	}
+
+	if rec := internalGet(t, srv, "/api/v1/internal/capability-visible?kind=skill"); rec.Code != http.StatusBadRequest {
+		t.Fatalf("missing arguments: status = %d, want 400", rec.Code)
 	}
 }

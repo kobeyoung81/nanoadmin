@@ -179,6 +179,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/internal/agent-types", s.restInternalAgentTypes)
 	mux.HandleFunc("GET /api/v1/internal/models/{id}", s.restInternalModel)
 	mux.HandleFunc("GET /api/v1/internal/model-providers/{id}", s.restInternalModelProvider)
+	mux.HandleFunc("POST /api/v1/internal/agent-default-model", s.restInternalAgentDefaultModel)
+	mux.HandleFunc("GET /api/v1/internal/capability-visible", s.restInternalCapabilityVisible)
 
 	// The skill catalogue: the console manages definitions, users manage their own,
 	// and the agent runtime's save/delete/ack arrive through the internal face

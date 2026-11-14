@@ -41,6 +41,11 @@ type RuntimeResolution struct {
 	Settings          map[string]string                  `json:"settings"`
 	Definitions       []nanoprotocol.AgentTypeDef        `json:"definitions"`
 	Type              *nanoprotocol.AgentTypeDef         `json:"type"`
+	// DefaultModeModelID/Name are the model that mode runs with: the mode's
+	// override when it names one, else the type's default. The list views show
+	// it, so it comes back with the resolution instead of a second round trip.
+	DefaultModeModelID   int64  `json:"default_mode_model_id"`
+	DefaultModeModelName string `json:"default_mode_model_name"`
 }
 
 // ResolveRuntime answers everything the runtime reads from the catalogue.
@@ -65,13 +70,34 @@ func (s *Store) ResolveRuntime(in RuntimeInput) (RuntimeResolution, error) {
 			return RuntimeResolution{}, fmt.Errorf("resolve type: %w", err)
 		}
 	}
+	modelID, modelName := s.DefaultModeModel(in.AgentID, modeID)
 	return RuntimeResolution{
-		DefaultModeTypeID: modeID,
-		Capabilities:      caps,
-		Settings:          settings,
-		Definitions:       defs,
-		Type:              primary,
+		DefaultModeTypeID:    modeID,
+		Capabilities:         caps,
+		Settings:             settings,
+		Definitions:          defs,
+		Type:                 primary,
+		DefaultModeModelID:   modelID,
+		DefaultModeModelName: modelName,
 	}, nil
+}
+
+// DefaultModeModel answers the model one agent's mode runs with. The override
+// names it when it does; otherwise the type's default binding decides.
+func (s *Store) DefaultModeModel(agentID, typeID string) (int64, string) {
+	var modelID int64
+	if ov, err := s.GetAgentTypeOverride(agentID, typeID); err == nil && ov != nil && ov.ModelID != 0 {
+		modelID = s.EffectiveModelIDForType(typeID, ov.ModelID)
+	} else {
+		modelID = s.DefaultModelForType(typeID)
+	}
+	if modelID == 0 {
+		return 0, ""
+	}
+	if m, err := s.GetModel(modelID); err == nil && m != nil {
+		return modelID, m.Name
+	}
+	return modelID, ""
 }
 
 // DefaultModeTypeID is the mode a turn starts in: the agent's default session type,
