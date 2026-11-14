@@ -170,6 +170,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/v1/capabilities/builtin/{id}", s.restUpdateBuiltin)
 	mux.HandleFunc("POST /api/v1/internal/builtin-tools/sync", s.restSyncBuiltinTools)
 
+	// Resolving one agent's runtime from the catalogue: the bus asks here instead of
+	// reading this module's collections out of the shared database.
+	mux.HandleFunc("POST /api/v1/internal/agent-runtime", s.restResolveAgentRuntime)
+	mux.HandleFunc("POST /api/v1/internal/mode-capabilities", s.restResolveModeCapabilities)
+
 	// The skill catalogue: the console manages definitions, users manage their own,
 	// and the agent runtime's save/delete/ack arrive through the internal face
 	// (the bus forwards them).

@@ -52,7 +52,7 @@ func testCatalogServer(t *testing.T) (*Server, *store.Store) {
 	if _, err := st.Migrate(manifests); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	s := New(config.Config{}, st).WithCatalog(st)
+	s := New(config.Config{InternalToken: testInternalToken}, st).WithCatalog(st)
 	return s, st
 }
 
