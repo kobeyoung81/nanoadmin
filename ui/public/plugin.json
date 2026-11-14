@@ -5,10 +5,227 @@
   "panels": [],
   "pages": [
     {
+      "id": "overview",
+      "path": "/admin/overview",
+      "title": {
+        "zh-CN": "总览",
+        "en": "Overview"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "OverviewPage"
+      }
+    },
+    {
+      "id": "components",
+      "path": "/admin/components",
+      "title": {
+        "zh-CN": "组件",
+        "en": "Components"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "ComponentsPage"
+      }
+    },
+    {
       "id": "runtime",
       "path": "/admin/runtime",
-      "title": { "zh-CN": "运行状态", "en": "Runtime" },
-      "mount": { "kind": "module", "module": "admin/pages", "export": "RuntimePage" }
+      "title": {
+        "zh-CN": "运行状态",
+        "en": "Runtime"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "RuntimePage"
+      }
+    },
+    {
+      "id": "component-detail",
+      "path": "/admin/components/:type",
+      "title": {
+        "zh-CN": "组件",
+        "en": "Components"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "ComponentsPage"
+      }
+    },
+    {
+      "id": "audit",
+      "path": "/admin/audit",
+      "title": {
+        "zh-CN": "操作日志",
+        "en": "Audit log"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "AuditPage"
+      }
+    }
+  ],
+  "nav": [
+    {
+      "id": "overview",
+      "parent": "admin",
+      "path": "/admin/overview",
+      "title": {
+        "zh-CN": "总览",
+        "en": "Overview"
+      },
+      "icon": "layout-dashboard",
+      "section": "overview",
+      "order": 10
+    },
+    {
+      "id": "components",
+      "parent": "admin",
+      "path": "/admin/components",
+      "title": {
+        "zh-CN": "组件",
+        "en": "Components"
+      },
+      "icon": "boxes",
+      "section": "overview",
+      "order": 20
+    },
+    {
+      "id": "users",
+      "parent": "admin",
+      "path": "/admin/users",
+      "title": {
+        "zh-CN": "用户",
+        "en": "Users"
+      },
+      "icon": "users",
+      "section": "operations",
+      "order": 10
+    },
+    {
+      "id": "configs",
+      "parent": "admin",
+      "path": "/admin/configs",
+      "title": {
+        "zh-CN": "配置中心",
+        "en": "Configuration"
+      },
+      "icon": "sliders-horizontal",
+      "section": "management",
+      "order": 10
+    },
+    {
+      "id": "directory",
+      "parent": "admin",
+      "path": "/admin/directory",
+      "title": {
+        "zh-CN": "目录登录",
+        "en": "Directory"
+      },
+      "icon": "key-round",
+      "section": "management",
+      "order": 20
+    },
+    {
+      "id": "voice",
+      "parent": "admin",
+      "path": "/admin/voice",
+      "title": {
+        "zh-CN": "语音输入",
+        "en": "Voice input"
+      },
+      "icon": "mic",
+      "section": "management",
+      "order": 30
+    },
+    {
+      "id": "models",
+      "parent": "admin",
+      "path": "/admin/models",
+      "title": {
+        "zh-CN": "模型中心",
+        "en": "Models"
+      },
+      "icon": "cpu",
+      "section": "management",
+      "order": 40
+    },
+    {
+      "id": "capabilities",
+      "parent": "admin",
+      "path": "/admin/capabilities",
+      "title": {
+        "zh-CN": "能力中心",
+        "en": "Capabilities"
+      },
+      "icon": "blocks",
+      "section": "management",
+      "order": 50
+    },
+    {
+      "id": "agent-types",
+      "parent": "admin",
+      "path": "/admin/agent-types",
+      "title": {
+        "zh-CN": "智能体中心",
+        "en": "Agent types"
+      },
+      "icon": "bot",
+      "section": "management",
+      "order": 60
+    },
+    {
+      "id": "audit",
+      "parent": "admin",
+      "path": "/admin/audit",
+      "title": {
+        "zh-CN": "操作日志",
+        "en": "Audit log"
+      },
+      "icon": "scroll-text",
+      "section": "audit",
+      "order": 10
+    },
+    {
+      "id": "conversations",
+      "parent": "admin",
+      "path": "/admin/conversations",
+      "title": {
+        "zh-CN": "会话日志",
+        "en": "Conversations"
+      },
+      "icon": "message-square",
+      "section": "audit",
+      "order": 20
+    },
+    {
+      "id": "runtime",
+      "parent": "admin",
+      "path": "/admin/runtime",
+      "title": {
+        "zh-CN": "运行状态",
+        "en": "Runtime"
+      },
+      "icon": "activity",
+      "section": "audit",
+      "order": 30
+    },
+    {
+      "id": "alerts",
+      "parent": "admin",
+      "path": "/admin/alerts",
+      "title": {
+        "zh-CN": "告警规则",
+        "en": "Alert rules"
+      },
+      "icon": "bell",
+      "section": "messages",
+      "order": 10
     }
   ]
 }

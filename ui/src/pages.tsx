@@ -9,6 +9,11 @@ import { RefreshCw } from 'lucide-react'
 import type { PageContext } from './contract'
 import type { RuntimeSnapshot } from './types'
 import { useApi } from './useApi'
+import { AuditPage } from './pages/audit'
+import { ComponentsPage } from './pages/components'
+import { OverviewPage } from './pages/overview'
+
+export { AuditPage, ComponentsPage, OverviewPage }
 
 export function RuntimePage({ ctx }: { ctx: PageContext }) {
   const { t, ui, api } = ctx

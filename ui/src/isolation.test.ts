@@ -22,8 +22,27 @@ describe('the boundary', () => {
     expect(pages).not.toContain("from '../lib")
   })
 
-  it('declares the page in the manifest and exposes it from the remote build', () => {
-    expect(manifest.pages.map((page) => page.path)).toEqual(['/admin/runtime'])
+  it('declares every page in the manifest and exposes them from the remote build', () => {
+    const pagePaths = manifest.pages.map((page) => page.path)
+    const navPaths = manifest.nav.map((entry) => entry.path)
+
+    // A page under a menu entry, or a detail route the menu cannot express.
+    for (const path of pagePaths) {
+      expect(path.includes(':') || navPaths.includes(path)).toBe(true)
+    }
+
+    // The screens this plugin renders today. The console's remaining ones
+    // (configs, directory, voice, models, agent-types, capabilities,
+    // conversations, alerts) still come from the shell's fallback; each moves
+    // here by adding a page and deleting its fallback, and this list is the
+    // record of how far the migration has got.
+    expect(pagePaths).toEqual([
+      '/admin/overview',
+      '/admin/components',
+      '/admin/runtime',
+      '/admin/components/:type',
+      '/admin/audit',
+    ])
     expect(manifest.entry).toBe('/plugins/admin/remoteEntry.js')
     expect(remoteConfig).toContain("'./pages': './src/pages.tsx'")
     expect(remoteConfig).toContain("base: '/plugins/admin/'")
