@@ -23,6 +23,12 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		// /healthz is the only open path; both API namespaces are guarded — the
 		// module API (/api/v1/, which also contains /api/v1/admin/) and the
 		// console's historical prefix (/api/admin/v1/).
+		if r.URL.Path == "/metrics" {
+			// A scraper is infrastructure, not a caller: it carries no token and
+			// the exposition has no user data.
+			next.ServeHTTP(w, r)
+			return
+		}
 		if !strings.HasPrefix(r.URL.Path, "/api/v1/") && !strings.HasPrefix(r.URL.Path, "/api/admin/v1/") {
 			next.ServeHTTP(w, r)
 			return

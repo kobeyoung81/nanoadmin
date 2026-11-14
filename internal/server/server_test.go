@@ -257,3 +257,16 @@ func TestUnknownConfigItemIsNotFound(t *testing.T) {
 		t.Fatalf("status = %d, want 404", rec.Code)
 	}
 }
+
+// TestMetricsIsOpen: a scraper carries no token, and the exposition has no user
+// data. Everything under /api/v1 still refuses one.
+func TestMetricsIsOpen(t *testing.T) {
+	rec := httptest.NewRecorder()
+	newTestServer("secret").ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "admin_http_requests_total") {
+		t.Fatalf("the exposition has no admin metric: %.200s", rec.Body.String())
+	}
+}

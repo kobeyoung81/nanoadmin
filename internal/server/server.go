@@ -12,6 +12,7 @@ import (
 	"gitee.com/kobeyoung81/nanoadmin/internal/auth"
 	"gitee.com/kobeyoung81/nanoadmin/internal/busclient"
 	"gitee.com/kobeyoung81/nanoadmin/internal/config"
+	"gitee.com/kobeyoung81/nanoadmin/internal/metrics"
 	"gitee.com/kobeyoung81/nanoadmin/internal/provisionerclient"
 	"gitee.com/kobeyoung81/nanoadmin/internal/store"
 	"gitee.com/kobeyoung81/nanoprotocol"
@@ -118,6 +119,10 @@ func (s *Server) Handler() http.Handler {
 	// This module's front end, when the image carries one. It is public: the
 	// portal's shell loads it, and the page's data calls carry the user's token.
 	s.registerUIRoutes(mux, s.cfg.UIDir)
+
+	// Operational numbers, anonymous: a scraper is infrastructure. The guard below
+	// lets it through by path.
+	mux.Handle("GET /metrics", metrics.Handler())
 
 	mux.HandleFunc("GET /api/v1/config", s.restListConfigComponents)
 	mux.HandleFunc("GET /api/v1/config/{component}", s.restGetConfig)
@@ -239,7 +244,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerContainerRoutes(mux, "/api/admin/v1")
 	s.registerContainerRoutes(mux, "/api/v1/admin")
 
-	return s.authenticate(mux)
+	return metrics.Middleware(s.authenticate(mux))
 }
 
 func (s *Server) restListConfigComponents(w http.ResponseWriter, r *http.Request) {
