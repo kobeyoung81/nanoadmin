@@ -174,6 +174,10 @@ func (s *Server) Handler() http.Handler {
 	// reading this module's collections out of the shared database.
 	mux.HandleFunc("POST /api/v1/internal/agent-runtime", s.restResolveAgentRuntime)
 	mux.HandleFunc("POST /api/v1/internal/mode-capabilities", s.restResolveModeCapabilities)
+	mux.HandleFunc("GET /api/v1/internal/prompt-blocks", s.restInternalPromptBlocks)
+	mux.HandleFunc("GET /api/v1/internal/agent-modes/{agentID}/{typeID}", s.restInternalAgentMode)
+	mux.HandleFunc("GET /api/v1/internal/models/{id}", s.restInternalModel)
+	mux.HandleFunc("GET /api/v1/internal/model-providers/{id}", s.restInternalModelProvider)
 
 	// The skill catalogue: the console manages definitions, users manage their own,
 	// and the agent runtime's save/delete/ack arrive through the internal face
