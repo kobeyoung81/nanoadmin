@@ -176,6 +176,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/internal/mode-capabilities", s.restResolveModeCapabilities)
 	mux.HandleFunc("GET /api/v1/internal/prompt-blocks", s.restInternalPromptBlocks)
 	mux.HandleFunc("GET /api/v1/internal/agent-modes/{agentID}/{typeID}", s.restInternalAgentMode)
+	mux.HandleFunc("GET /api/v1/internal/agent-types", s.restInternalAgentTypes)
 	mux.HandleFunc("GET /api/v1/internal/models/{id}", s.restInternalModel)
 	mux.HandleFunc("GET /api/v1/internal/model-providers/{id}", s.restInternalModelProvider)
 

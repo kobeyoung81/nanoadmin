@@ -127,3 +127,15 @@ func (s *Server) restInternalAgentMode(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"type": at, "override": ov})
 }
+
+// restInternalAgentTypes answers the type catalogue the runtime asks for.
+func (s *Server) restInternalAgentTypes(w http.ResponseWriter, r *http.Request) {
+	sessionOnly := r.URL.Query().Get("session_only") == "1"
+	types, err := s.catalog.ListAgentTypes(sessionOnly)
+	if err != nil {
+		slog.Error("list agent types", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"types": types})
+}
