@@ -68,6 +68,45 @@
         "module": "admin/pages",
         "export": "AuditPage"
       }
+    },
+    {
+      "id": "configs",
+      "path": "/admin/configs",
+      "title": {
+        "zh-CN": "配置中心",
+        "en": "Configuration"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "ConfigsPage"
+      }
+    },
+    {
+      "id": "conversations",
+      "path": "/admin/conversations",
+      "title": {
+        "zh-CN": "会话日志",
+        "en": "Conversations"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "ConversationLogsPage"
+      }
+    },
+    {
+      "id": "alerts",
+      "path": "/admin/alerts",
+      "title": {
+        "zh-CN": "告警规则",
+        "en": "Alert rules"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "AlertsPage"
+      }
     }
   ],
   "nav": [

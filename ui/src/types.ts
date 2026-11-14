@@ -131,3 +131,24 @@ export type AlertRule = {
   threshold: number
   enabled: boolean
 }
+
+// The configuration centre's two shapes: one entry per component and one
+// component's key/value table. `/me` answers the role the write rule reads.
+export type ConfigSummary = {
+  component_type: string
+  updated_at: string
+  source?: string
+}
+
+export type ConfigDetail = {
+  component_type: string
+  updated_at: string
+  config: Record<string, unknown>
+}
+
+export type AdminIdentity = {
+  user_id: string
+  display_name: string
+  role: string
+  tier?: string
+}
