@@ -14,9 +14,11 @@ import { AuditPage } from './pages/audit'
 import { CapabilitiesPage } from './pages/capabilities'
 import { ComponentsPage } from './pages/components'
 import { ConfigsPage } from './pages/configs'
+import { DirectoryPage } from './pages/directory'
 import { ConversationLogsPage } from './pages/conversations'
 import { ModelsPage } from './pages/models'
 import { OverviewPage } from './pages/overview'
+import { VoicePage } from './pages/voice'
 
 export {
   AlertsPage,
@@ -24,9 +26,11 @@ export {
   CapabilitiesPage,
   ComponentsPage,
   ConfigsPage,
+  DirectoryPage,
   ConversationLogsPage,
   ModelsPage,
   OverviewPage,
+  VoicePage,
 }
 
 export function RuntimePage({ ctx }: { ctx: PageContext }) {

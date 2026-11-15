@@ -133,6 +133,32 @@
         "module": "admin/pages",
         "export": "ModelsPage"
       }
+    },
+    {
+      "id": "voice",
+      "path": "/admin/voice",
+      "title": {
+        "zh-CN": "语音输入",
+        "en": "Voice input"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "VoicePage"
+      }
+    },
+    {
+      "id": "directory",
+      "path": "/admin/directory",
+      "title": {
+        "zh-CN": "目录登录",
+        "en": "Directory"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "DirectoryPage"
+      }
     }
   ],
   "nav": [
