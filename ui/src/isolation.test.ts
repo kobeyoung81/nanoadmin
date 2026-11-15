@@ -32,7 +32,7 @@ describe('the boundary', () => {
     }
 
     // The screens this plugin renders today. The console's remaining ones
-    // (directory, voice, models, agent-types, capabilities) still come from the
+    // (directory, voice, agent-types) still come from the
     // shell's fallback; each moves here by adding a page and deleting its
     // fallback, and this list is the record of how far the migration has got.
     expect(pagePaths).toEqual([
@@ -44,6 +44,8 @@ describe('the boundary', () => {
       '/admin/configs',
       '/admin/conversations',
       '/admin/alerts',
+      '/admin/capabilities',
+      '/admin/models',
     ])
     expect(manifest.entry).toBe('/plugins/admin/remoteEntry.js')
     expect(remoteConfig).toContain("'./pages': './src/pages.tsx'")

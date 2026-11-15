@@ -11,12 +11,23 @@ import type { RuntimeSnapshot } from './types'
 import { useApi } from './useApi'
 import { AlertsPage } from './pages/alerts'
 import { AuditPage } from './pages/audit'
+import { CapabilitiesPage } from './pages/capabilities'
 import { ComponentsPage } from './pages/components'
 import { ConfigsPage } from './pages/configs'
 import { ConversationLogsPage } from './pages/conversations'
+import { ModelsPage } from './pages/models'
 import { OverviewPage } from './pages/overview'
 
-export { AlertsPage, AuditPage, ComponentsPage, ConfigsPage, ConversationLogsPage, OverviewPage }
+export {
+  AlertsPage,
+  AuditPage,
+  CapabilitiesPage,
+  ComponentsPage,
+  ConfigsPage,
+  ConversationLogsPage,
+  ModelsPage,
+  OverviewPage,
+}
 
 export function RuntimePage({ ctx }: { ctx: PageContext }) {
   const { t, ui, api } = ctx

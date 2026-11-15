@@ -1,0 +1,31 @@
+import { Mic } from 'lucide-react'
+import type { PageContext } from '../contract'
+import { ModelsPanel } from '../components/ModelsPanel'
+
+// Admin Model Configuration module: the standalone, first-class surface for the
+// platform model provider/model catalog (extracted from the generic Config
+// Center). Provider/model values remain readable by the runtime as a fallback.
+//
+// Dictation has its own console (/admin/voice): its three tiers are settings of
+// their own, and the only thing they share with this page is where the providers
+// come from.
+export function ModelsPage({ ctx }: { ctx: PageContext }) {
+  const { t, navigate } = ctx
+  return (
+    <div className="space-y-4" data-admin-page="models">
+      <div>
+        <h1 className="text-xl font-semibold">{t('nav.models')}</h1>
+        <p className="text-sm text-muted-foreground">{t('models.adminHint')}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => navigate('/admin/voice')}
+        className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
+      >
+        <Mic className="size-4" />
+        {t('nav.voiceInput')}
+      </button>
+      <ModelsPanel mode="admin" />
+    </div>
+  )
+}

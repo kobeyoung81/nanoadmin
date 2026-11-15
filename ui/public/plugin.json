@@ -107,6 +107,32 @@
         "module": "admin/pages",
         "export": "AlertsPage"
       }
+    },
+    {
+      "id": "capabilities",
+      "path": "/admin/capabilities",
+      "title": {
+        "zh-CN": "能力中心",
+        "en": "Capabilities"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "CapabilitiesPage"
+      }
+    },
+    {
+      "id": "models",
+      "path": "/admin/models",
+      "title": {
+        "zh-CN": "模型中心",
+        "en": "Models"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "ModelsPage"
+      }
     }
   ],
   "nav": [
