@@ -159,6 +159,19 @@
         "module": "admin/pages",
         "export": "DirectoryPage"
       }
+    },
+    {
+      "id": "agent-types",
+      "path": "/admin/agent-types",
+      "title": {
+        "zh-CN": "智能体中心",
+        "en": "Agent types"
+      },
+      "mount": {
+        "kind": "module",
+        "module": "admin/pages",
+        "export": "AgentTypesPage"
+      }
     }
   ],
   "nav": [

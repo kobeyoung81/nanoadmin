@@ -9,6 +9,7 @@ import { RefreshCw } from 'lucide-react'
 import type { PageContext } from './contract'
 import type { RuntimeSnapshot } from './types'
 import { useApi } from './useApi'
+import { AgentTypesPage } from './pages/agent-types'
 import { AlertsPage } from './pages/alerts'
 import { AuditPage } from './pages/audit'
 import { CapabilitiesPage } from './pages/capabilities'
@@ -21,6 +22,7 @@ import { OverviewPage } from './pages/overview'
 import { VoicePage } from './pages/voice'
 
 export {
+  AgentTypesPage,
   AlertsPage,
   AuditPage,
   CapabilitiesPage,
