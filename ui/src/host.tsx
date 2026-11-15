@@ -16,10 +16,20 @@ const HostContext = createContext<PageContext | null>(null)
 
 let currentContext: PageContext | null = null
 
-export function HostProvider({ ctx, children }: { ctx: PageContext; children: ReactNode }) {
-  // Also kept module-level: a lib module (an API wrapper) cannot read a context.
-  // Writing it during render is safe because only one page is mounted at a time.
+/**
+ * setHostContext records the page that is on screen.
+ *
+ * The shell mounts every page as `pages.tsx` exports it, so the wrapper there calls
+ * this before the page renders. A nested component (or a lib module) then answers
+ * from the same value — without it, `useHost()` had a provider that nothing ever
+ * rendered and every nested screen threw "HostProvider is missing".
+ */
+export function setHostContext(ctx: PageContext): void {
   currentContext = ctx
+}
+
+export function HostProvider({ ctx, children }: { ctx: PageContext; children: ReactNode }) {
+  setHostContext(ctx)
   return <HostContext.Provider value={ctx}>{children}</HostContext.Provider>
 }
 
@@ -36,11 +46,18 @@ export function hostApi(): PageContext['api'] {
   return currentContext.api
 }
 
-/** useHost returns the current page's context; a component outside a page is a bug. */
+/**
+ * useHost returns the current page's context.
+ *
+ * The provider is preferred (it re-renders its subtree when the context changes);
+ * the module-level copy covers the pages the shell mounts directly, which install it
+ * through `withHost` in pages.tsx. A component outside any page is a bug and says so.
+ */
 export function useHost(): PageContext {
-  const ctx = useContext(HostContext)
+  const fromProvider = useContext(HostContext)
+  const ctx = fromProvider ?? currentContext
   if (!ctx) {
-    throw new Error('this component must render inside a page (HostProvider is missing)')
+    throw new Error('this component must render inside a page (no host context is installed)')
   }
   return ctx
 }

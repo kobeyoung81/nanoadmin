@@ -10,10 +10,21 @@ import pages from './pages.tsx?raw'
 // bundle).
 
 describe('the boundary', () => {
+  it('installs the page context before a page renders', () => {
+    // Nested components and lib modules read the host from ./host. The shell mounts
+    // what pages.tsx exports, so every export has to be wrapped: an unwrapped page
+    // threw "no host context is installed" on its first nested component.
+    const wrapped = [...pages.matchAll(/export const \w+ = withHost\(/g)].length
+    const screens = [...pages.matchAll(/import \{ \w+ as \w+Screen \} from '\.\/pages\//g)].length
+    expect(wrapped).toBe(12)
+    expect(screens).toBe(11)
+    expect(pages).not.toContain('export {\n  AgentTypesPage')
+  })
+
   it('imports only its own modules and icons', () => {
     const imports = [...pages.matchAll(/from '([^']+)'/g)].map((match) => match[1])
     const external = imports.filter((spec) => !spec.startsWith('.'))
-    expect(external.sort()).toEqual(['lucide-react'])
+    expect(external.sort()).toEqual(['lucide-react', 'react'])
   })
 
   it('takes the kit, the strings and the client from the context', () => {

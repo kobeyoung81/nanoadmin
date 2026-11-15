@@ -6,36 +6,51 @@
 // shell's kit through the context.
 
 import { RefreshCw } from 'lucide-react'
+import type { ComponentType } from 'react'
 import type { PageContext } from './contract'
 import type { RuntimeSnapshot } from './types'
 import { useApi } from './useApi'
-import { AgentTypesPage } from './pages/agent-types'
-import { AlertsPage } from './pages/alerts'
-import { AuditPage } from './pages/audit'
-import { CapabilitiesPage } from './pages/capabilities'
-import { ComponentsPage } from './pages/components'
-import { ConfigsPage } from './pages/configs'
-import { DirectoryPage } from './pages/directory'
-import { ConversationLogsPage } from './pages/conversations'
-import { ModelsPage } from './pages/models'
-import { OverviewPage } from './pages/overview'
-import { VoicePage } from './pages/voice'
+import { setHostContext } from './host'
+import { AgentTypesPage as AgentTypesScreen } from './pages/agent-types'
+import { AlertsPage as AlertsScreen } from './pages/alerts'
+import { AuditPage as AuditScreen } from './pages/audit'
+import { CapabilitiesPage as CapabilitiesScreen } from './pages/capabilities'
+import { ComponentsPage as ComponentsScreen } from './pages/components'
+import { ConfigsPage as ConfigsScreen } from './pages/configs'
+import { DirectoryPage as DirectoryScreen } from './pages/directory'
+import { ConversationLogsPage as ConversationsScreen } from './pages/conversations'
+import { ModelsPage as ModelsScreen } from './pages/models'
+import { OverviewPage as OverviewScreen } from './pages/overview'
+import { VoicePage as VoiceScreen } from './pages/voice'
 
-export {
-  AgentTypesPage,
-  AlertsPage,
-  AuditPage,
-  CapabilitiesPage,
-  ComponentsPage,
-  ConfigsPage,
-  DirectoryPage,
-  ConversationLogsPage,
-  ModelsPage,
-  OverviewPage,
-  VoicePage,
+/**
+ * withHost installs the page's context before it renders.
+ *
+ * A page receives the shell's services as a prop, but the components it renders are
+ * nested (a provider form, a capability table, a lib module) and read them from
+ * `./host`. Without this the first nested `useHost()` threw.
+ */
+function withHost<P extends { ctx: PageContext }>(Page: ComponentType<P>): ComponentType<P> {
+  const HostedPage = (props: P) => {
+    setHostContext(props.ctx)
+    return <Page {...props} />
+  }
+  return HostedPage
 }
 
-export function RuntimePage({ ctx }: { ctx: PageContext }) {
+export const AgentTypesPage = withHost(AgentTypesScreen)
+export const AlertsPage = withHost(AlertsScreen)
+export const AuditPage = withHost(AuditScreen)
+export const CapabilitiesPage = withHost(CapabilitiesScreen)
+export const ComponentsPage = withHost(ComponentsScreen)
+export const ConfigsPage = withHost(ConfigsScreen)
+export const DirectoryPage = withHost(DirectoryScreen)
+export const ConversationLogsPage = withHost(ConversationsScreen)
+export const ModelsPage = withHost(ModelsScreen)
+export const OverviewPage = withHost(OverviewScreen)
+export const VoicePage = withHost(VoiceScreen)
+
+function RuntimeScreen({ ctx }: { ctx: PageContext }) {
   const { t, ui, api } = ctx
   const {
     PageHeader,
@@ -209,3 +224,5 @@ export function RuntimePage({ ctx }: { ctx: PageContext }) {
     </div>
   )
 }
+
+export const RuntimePage = withHost(RuntimeScreen)
