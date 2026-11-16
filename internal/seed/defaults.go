@@ -60,8 +60,13 @@ func DefaultConfigItems() map[string][]store.ConfigItem {
 			ci("runner.runnerID", "nanorunner", "string", "Stable runner identity reused across restarts"),
 			ci("runner.pollInterval", "5", "int", "Poll interval in seconds"),
 			ci("runner.backend", "docker", "string", "Provisioner backend: docker | swarm | k8s"),
-			ci("agentImage", "kobeyoung81/nanosec:latest", "string", "Docker image for agent containers"),
-			ci("network", "myriadmind_default", "string", "Docker network name"),
+			ci("agentImage", "kobeyoung81/nanoagent:nanosec", "string", "Docker image for agent containers"),
+			// Empty means "the network the runner itself is attached to". Seeding a
+			// fixed name used to point a fresh deployment at another stack's network.
+			ci("network", "", "string", "Docker network for agent containers (empty = the runner's own network)"),
+			// Several stacks share one daemon: the prefix keeps their agent containers
+			// and data volumes apart. Empty = the same names the legacy stack used.
+			ci("namePrefix", "", "string", "Prefix for agent container and data volume names (e.g. stg- for a staging stack)"),
 			ci("seccompProfile", "", "string", "Daemon-host path to the agent container seccomp profile (empty = Docker default)"),
 			// Without a TZ the agent container runs in UTC: dates in the system
 			// prompt, cron schedules and git timestamps are all off for a CST

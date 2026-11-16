@@ -149,3 +149,33 @@ func TestDefaultConfigItems_ScheduledTaskModeDefaultsToBuild(t *testing.T) {
 	}
 	t.Fatal("agent.scheduledTaskMode is not seeded")
 }
+
+// A fresh deployment must not inherit another stack's names. The network default
+// used to be the legacy stack's network and the image default the pre-rename
+// image name; both made a new stack attach agents to the wrong bus and run the
+// wrong binary. The prefix has to be present so an operator sees the knob.
+func TestDefaultConfigItems_RunnerNamesAreStackNeutral(t *testing.T) {
+	want := map[string]string{
+		"network":    "",
+		"namePrefix": "",
+		"agentImage": "kobeyoung81/nanoagent:nanosec",
+	}
+	got := map[string]string{}
+	for _, item := range DefaultConfigItems()["runner"] {
+		if _, ok := want[item.Key]; ok {
+			got[item.Key] = item.Value
+			if item.Description == "" {
+				t.Errorf("%s needs a description: the console shows it", item.Key)
+			}
+		}
+	}
+	for key, value := range want {
+		v, ok := got[key]
+		if !ok {
+			t.Fatalf("runner seed is missing %q", key)
+		}
+		if v != value {
+			t.Errorf("runner.%s = %q, want %q", key, v, value)
+		}
+	}
+}
