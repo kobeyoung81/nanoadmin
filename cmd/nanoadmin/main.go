@@ -36,6 +36,7 @@ import (
 var version = "dev"
 
 func main() {
+	server.Version = version
 	cmd := "serve"
 	args := os.Args[1:]
 	if len(args) > 0 {
