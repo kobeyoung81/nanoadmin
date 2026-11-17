@@ -1,38 +1,104 @@
 # nanoadmin
 
-NanoSec 平台的 admin 模块：目录、配置、审计。
+The catalogue and the configuration: what exists, what it is allowed to do, and what
+happened.
 
-## 它拥有什么
+It is one of the eight first-class services. Every console screen that edits
+configuration, an agent type, a model, a skill, a prompt or a permission key talks to
+this module.
 
-- **一组集合前缀**：`admin_`（`admin_config`、`admin_agent_types`、`admin_models`、`admin_capabilities` 等）。
-  `sys_migrations` 里它只写 `service="admin"` 的记录。
-- **一个 HTTP 面**：`/api/v1/config*`（本阶段只读），由门户的服务器转发；浏览器不直连它。
-  `/healthz` 是唯一不带内部令牌的端点。
+## What it is
 
-它**不读**别的模块的集合：用户身份、agent 归属这类事实一律走 HTTP 问对方。
+- **The catalogue.** Agent types and their overrides, model providers and models,
+  skills, prompt blocks, MCP servers and permission keys — one place, versioned, seeded
+  from code and edited in the console.
+- **Configuration.** Every component's settings (`agent.*`, `runner.*`,
+  `channels.*`, `ldap.*`, `voice.*`) as typed key-value rows.
+- **The audit trail.** Who changed what, with the detail that makes it useful.
+- **Alerts.** Rules the console evaluates and shows.
+- **The console's screens.** The admin pages are built here and served to the portal
+  as a plugin.
 
-## 配置
+## Where it sits
 
-| 环境变量 | 作用 |
+| | |
 |---|---|
-| `NANOSEC_ADMIN_ADDR` | 监听地址，默认 `:8080` |
-| `NANOSEC_ADMIN_MONGO_URI` | 平台库连接串；未设置时回落到 `NANOSEC_BUS_DATABASE_URI` |
-| `NANOSEC_BUS_INTERNAL_TOKEN` | 内部令牌；为空时所有 `/api/v1` 请求一律拒绝 |
+| Collections | `admin_config`, `admin_agent_types`, `admin_agent_type_overrides`, `admin_model_providers`, `admin_models`, `admin_skills`, `admin_user_skill_acks`, `admin_prompts`, `admin_mcp_servers`, `admin_alert_rules`, `admin_audit_log` |
+| Port | `8080` in the network, `14404` on the host (loopback) |
+| Upstream | `nanoportal` (the console forwards to it), and every service that reads configuration at startup |
+| Downstream | `nanobus` and `nanoprovisioner` — a changed catalogue entry tells them to refresh |
+| `sys_migrations` | this service writes only its own `service="admin"` rows |
 
-## 命令
+## Quick start
 
 ```bash
-nanoadmin serve              # 起服务（启动时先跑一遍迁移，幂等）
-nanoadmin migrate up         # 只跑迁移
-nanoadmin migrate status     # 列出每个 manifest 是否已应用
+go build ./cmd/nanoadmin
+NANOSEC_ADMIN_MONGO_URI="mongodb://localhost:27017/nanosec" \
+NANOSEC_BUS_INTERNAL_TOKEN="…" \
+  ./nanoadmin serve
+
+./nanoadmin migrate up
+./nanoadmin config seed permissions seed agent-types seed prompts seed skills seed mcp seed
+```
+
+Seeding is idempotent and additive: it inserts what is missing and never overwrites a
+row an operator edited.
+
+## Configuration
+
+| Variable | Meaning |
+|---|---|
+| `NANOSEC_ADMIN_ADDR` | Listen address, default `:8080` |
+| `NANOSEC_ADMIN_MONGO_URI` | The platform database; falls back to `NANOSEC_BUS_DATABASE_URI` |
+| `NANOSEC_BUS_INTERNAL_TOKEN` | Every `/api/v1` request needs it; `/healthz` does not |
+| `NANOSEC_BUS_URL` / `NANOSEC_PROVISIONER_URL` | Where a catalogue change is announced |
+
+## CLI
+
+```bash
+nanoadmin serve                  # migrations, then the HTTP surface
+nanoadmin migrate up|status      # apply the manifests, list what is applied
+nanoadmin config get|set|seed    # read, write, seed configuration
+nanoadmin permissions seed       # the permission keys
+nanoadmin agent-types seed       # built-in agent types and their belts
+nanoadmin prompts seed           # the baseline prompt blocks
+nanoadmin skills seed            # bundled skills
+nanoadmin mcp seed               # platform MCP servers
 nanoadmin version
 ```
 
-## 阶段
+## Design decisions
 
-P2 第一片：服务骨架 + 只读的 config 域。写入与其余目录（agent-types / models /
-capabilities / prompts / permission-keys / audit）在后续切片里从 nanobus 搬来。
+- **Seeding never overwrites.** A bundled prompt, skill or agent type is inserted when
+  absent; the version an operator edited stays edited. That is why the seeder runs on
+  every start instead of once.
+- **The catalogue is announced, not polled.** A change publishes an event so the bus
+  and the provisioner drop their cached copy instead of waiting for a restart.
+- **Some collections carry a document-level decode.** The audit detail is stored as a
+  flexible document, and the setting that allows it is declared on the collection —
+  setting it on the client would make tests disagree with production.
+- **The console is built here.** Screens that edit this domain ship as a plugin with
+  the module that owns the data, not inside the shell.
 
-## 许可
+## Docs
 
-GNU Affero General Public License v3.0，见 LICENSE 与 NOTICE。
+- [`docs/MANAGEMENT_PORTAL_DESIGN.md`](https://gitee.com/kobeyoung81/nanosec/blob/master/docs/MANAGEMENT_PORTAL_DESIGN.md) — the screens and roles
+- [`docs/CAPABILITY_UNIFICATION_DESIGN.md`](https://gitee.com/kobeyoung81/nanosec/blob/master/docs/CAPABILITY_UNIFICATION_DESIGN.md) — how models, skills, MCP and tools became one catalogue
+- [`docs/README.md`](https://gitee.com/kobeyoung81/nanosec/blob/master/docs/README.md) — every document
+
+## Status
+
+Released as part of `v0.1.0`; the version of this module is pinned in the
+super-repo's `versions.lock`.
+
+## Contributing and security
+
+[`CONTRIBUTING.md`](https://gitee.com/kobeyoung81/nanosec/blob/master/CONTRIBUTING.md)
+for setup and commit rules; report vulnerabilities privately through
+[`SECURITY.md`](https://gitee.com/kobeyoung81/nanosec/blob/master/SECURITY.md), never
+in a public issue.
+
+## License
+
+[AGPL-3.0](./LICENSE). The name and logo are covered separately — see
+[`NOTICE`](./NOTICE).
