@@ -160,11 +160,25 @@ func (s *Store) applyMongoMigration(ctx context.Context, spec mongoMigration) er
 			}
 		}
 
-		if len(cs.Indexes) == 0 {
+		// An index whose options changed is dropped here and created below with the
+		// new ones. Creating it again with different options fails ("already exists
+		// with different options"), and collMod needs the dbAdmin role this
+		// service does not have, so the honest operation is drop-then-create.
+		for _, ix := range cs.ReplaceIndexes {
+			if ix.Name == "" {
+				return fmt.Errorf("collection %s: replaceIndexes needs an index name", name)
+			}
+			if err := s.db.Collection(name).Indexes().DropOne(ctx, ix.Name); err != nil && !isIndexNotFound(err) {
+				return fmt.Errorf("drop index %s on %s: %w", ix.Name, name, err)
+			}
+		}
+
+		specs := append(append([]indexSpec{}, cs.Indexes...), cs.ReplaceIndexes...)
+		if len(specs) == 0 {
 			continue
 		}
-		models := make([]mongo.IndexModel, 0, len(cs.Indexes))
-		for _, ix := range cs.Indexes {
+		models := make([]mongo.IndexModel, 0, len(specs))
+		for _, ix := range specs {
 			opts := options.Index()
 			if ix.Name != "" {
 				opts.SetName(ix.Name)
@@ -203,7 +217,11 @@ type mongoMigration struct {
 }
 
 type collectionSpec struct {
-	Indexes          []indexSpec     `json:"indexes"`
+	Indexes []indexSpec `json:"indexes"`
+	// ReplaceIndexes are indexes an earlier manifest created whose options have
+	// since changed (a TTL, or turning a lookup into a unique key). Dropping and
+	// recreating is the only option the service's role allows.
+	ReplaceIndexes   []indexSpec     `json:"replaceIndexes,omitempty"`
 	Validator        json.RawMessage `json:"validator,omitempty"`
 	ValidationLevel  string          `json:"validationLevel,omitempty"`
 	ValidationAction string          `json:"validationAction,omitempty"`
@@ -290,6 +308,13 @@ func parseMongoMigration(manifest string) (mongoMigration, error) {
 }
 
 // isNamespaceExists reports MongoDB's "namespace exists" error (48).
+// isIndexNotFound reports MongoDB's "index not found" (27) and "namespace not
+// found" (26): a fresh install has no old index to drop.
+func isIndexNotFound(err error) bool {
+	var ce mongo.CommandError
+	return errors.As(err, &ce) && (ce.Code == 27 || ce.Code == 26)
+}
+
 func isNamespaceExists(err error) bool {
 	var ce mongo.CommandError
 	return errors.As(err, &ce) && ce.Code == 48

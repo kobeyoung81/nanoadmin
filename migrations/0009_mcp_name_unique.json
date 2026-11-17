@@ -1,0 +1,26 @@
+{
+  "collections": {
+    "admin_mcp_servers": {
+      "replaceIndexes": [
+        {
+          "name": "scope_owner_name",
+          "keys": [
+            [
+              "scope",
+              1
+            ],
+            [
+              "owner_user_id",
+              1
+            ],
+            [
+              "name",
+              1
+            ]
+          ],
+          "unique": true
+        }
+      ]
+    }
+  }
+}

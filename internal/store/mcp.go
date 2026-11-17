@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -110,7 +111,7 @@ func (s *Store) CreateMcp(rec McpServerRecord) error {
 	ctx, cancel := opCtx()
 	defer cancel()
 
-	if err := s.ensureMcpNameFree(rec.Id(), rec.OwnerUserID, rec.Name); err != nil {
+	if err := s.ensureMcpNameFree(rec.Id(), rec.Scope, rec.OwnerUserID, rec.Name); err != nil {
 		return err
 	}
 
@@ -158,6 +159,11 @@ func (s *Store) completeMcpBelts(ctx context.Context) error {
 // SeedMcpServer inserts a server the binary ships, leaving an existing row
 // untouched: an administrator may have changed its URL, headers or default, and
 // a deploy must not undo that. Safe to re-run.
+//
+// A platform row that already points at the same endpoint counts as present even
+// when its id differs. Deployments configured this server by hand before the
+// seeder existed, so seeding by id alone grew a second copy of one server on
+// every start — two rows, two tool prefixes, the same endpoint.
 func (s *Store) SeedMcpServer(rec McpServerRecord) (bool, error) {
 	ctx, cancel := opCtx()
 	defer cancel()
@@ -166,6 +172,17 @@ func (s *Store) SeedMcpServer(rec McpServerRecord) (bool, error) {
 		bson.D{{Key: "_id", Value: rec.Id()}})
 	if err != nil {
 		return false, fmt.Errorf("check mcp server: %w", err)
+	}
+	if count == 0 {
+		if endpoint := strings.TrimSpace(rec.URL); endpoint != "" {
+			count, err = s.db.Collection(mcpServersCollection).CountDocuments(ctx, bson.D{
+				{Key: "scope", Value: "platform"},
+				{Key: "url", Value: endpoint},
+			})
+			if err != nil {
+				return false, fmt.Errorf("check mcp endpoint: %w", err)
+			}
+		}
 	}
 	if count > 0 {
 		return false, nil
@@ -180,6 +197,10 @@ func (s *Store) SeedMcpServer(rec McpServerRecord) (bool, error) {
 func (s *Store) UpdateMcp(id string, rec McpServerRecord) error {
 	ctx, cancel := opCtx()
 	defer cancel()
+
+	if err := s.ensureMcpNameFree(id, rec.Scope, rec.OwnerUserID, rec.Name); err != nil {
+		return err
+	}
 
 	// The SQL UPDATE matched zero rows for an unknown id and said nothing, so
 	// neither does this.
@@ -210,15 +231,19 @@ func (s *Store) UpdateMcpState(id string, defaultEnabled *bool, locked *string) 
 	return s.updateCatalogState(mcpServersCollection, id, defaultEnabled, locked, ErrCapabilityNotFound)
 }
 
-func (s *Store) ensureMcpNameFree(id, ownerUserID, name string) error {
+// ensureMcpNameFree reports a name already taken inside the row's own namespace:
+// the platform catalogue, or one user's catalogue. Checking only the user
+// namespace (as this did) let a platform row sit beside the seeded one under the
+// same name, which is how one server ended up listed twice in every agent.
+//
+// The check is a courtesy that produces a readable error; the unique index on
+// (scope, owner_user_id, name) is what actually holds under concurrency.
+func (s *Store) ensureMcpNameFree(id, scope, ownerUserID, name string) error {
 	ctx, cancel := opCtx()
 	defer cancel()
 
-	// Same soft check as the SQL: it counts the caller's own name collisions
-	// before inserting, and two concurrent creates could still race — the
-	// catalog has no unique key on (scope, owner, name) to lean on.
 	count, err := s.db.Collection(mcpServersCollection).CountDocuments(ctx, bson.D{
-		{Key: "scope", Value: "user"},
+		{Key: "scope", Value: scope},
 		{Key: "owner_user_id", Value: ownerUserID},
 		{Key: "name", Value: name},
 		{Key: "_id", Value: bson.D{{Key: "$ne", Value: id}}},

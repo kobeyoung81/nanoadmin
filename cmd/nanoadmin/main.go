@@ -476,7 +476,9 @@ func mcpSeed() error {
 	if inserted {
 		fmt.Println("Seeded the first-party MCP server.")
 	} else {
-		fmt.Println("The first-party MCP server is already present; left untouched.")
+		// Either the row is there or another platform row already points at the
+		// same endpoint; both mean the catalogue does not need a second copy.
+		fmt.Println("The first-party MCP server is already present (by id or endpoint); left untouched.")
 	}
 	return nil
 }
