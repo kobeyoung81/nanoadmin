@@ -23,7 +23,7 @@ ARG COMMIT=none
 ARG DATE=unknown
 ARG LDFLAGS="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}"
 
-RUN CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o /bin/nanoadmin ./cmd/nanoadmin
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "${LDFLAGS}" -o /bin/nanoadmin ./cmd/nanoadmin
 
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
