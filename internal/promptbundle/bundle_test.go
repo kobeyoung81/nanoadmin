@@ -106,7 +106,10 @@ func TestBuildAndPlanPrompts_CarryTheirContract(t *testing.T) {
 			t.Errorf("build prompt is missing %q", want)
 		}
 	}
-	for _, want := range []string{"plan_write", "question", "AGENT.md", "deliberately not doing", "the user's language", "SKILL.md", "sharedspace"} {
+	for _, want := range []string{"plan_write", "question", "AGENT.md", "deliberately not doing", "the user's language", "SKILL.md", "sharedspace",
+		// A long-run goal is created from the plan file, so these three headings
+		// are a contract with the parser in the workspace module.
+		"## 验收", "## 证据", "## 步骤"} {
 		if !strings.Contains(plan, want) {
 			t.Errorf("plan prompt is missing %q", want)
 		}
