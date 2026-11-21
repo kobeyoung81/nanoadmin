@@ -31,8 +31,8 @@ type Config struct {
 	// case.
 	JWKSURL string
 	// UIDir is the built front end this module contributes to the portal (served
-	// at /plugins/admin/). Empty disables it: the module still works, the portal
-	// then shows its own page.
+	// at /plugins/admin/). Empty disables it: the API still works, and the portal
+	// reports the pages as unavailable — it keeps no copy of them.
 	UIDir string
 }
 
