@@ -26,6 +26,9 @@
     },
     "_common": {
       "version": 3
+    },
+    "role_goal_judge": {
+      "version": 1
     }
   }
 }

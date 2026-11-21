@@ -20,7 +20,7 @@ func TestLoad_ReturnsEveryListedPrompt(t *testing.T) {
 	want := map[string]bool{
 		"build": true, "plan": true,
 		"role_general": true, "role_explore": true, "role_scout": true,
-		"role_summarize": true, "role_title": true,
+		"role_summarize": true, "role_title": true, "role_goal_judge": true,
 		"utility_memory_flush": true,
 	}
 	if len(prompts) != len(want) {

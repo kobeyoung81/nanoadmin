@@ -77,6 +77,13 @@ func CompleteBelts() []CompleteBelt {
 			TypeID: "role_title",
 		},
 		{
+			// The goal judge reads one round report and answers one JSON object.
+			// It has no tools at all, for the same reason as the title
+			// generator: a judge that can search, run or edit is a judge that can
+			// manufacture the evidence it was asked to weigh.
+			TypeID: "role_goal_judge",
+		},
+		{
 			TypeID: "role_general",
 			BuiltinTools: []string{
 				"read", "grep", "glob", "list", "webfetch", "load_skill", "bash", "edit", "write",
@@ -99,6 +106,7 @@ func Definitions() []nanoprotocol.AgentTypeDef {
 	react, oneshot := nanoprotocol.StrategyReact, nanoprotocol.StrategyOneshot
 	windowed, recent, incremental := nanoprotocol.ContextWindowed, nanoprotocol.ContextRecent, nanoprotocol.ContextIncremental
 	task, conversation := nanoprotocol.ContextTask, nanoprotocol.ContextConversation
+	none := nanoprotocol.ContextNone
 	stream, caller, summary, sessionMeta := nanoprotocol.OutputStream, nanoprotocol.OutputCaller, nanoprotocol.OutputSummary, nanoprotocol.OutputSessionMeta
 	shared, scratch, isolated := nanoprotocol.SessionBindingShared, nanoprotocol.SessionBindingScratch, nanoprotocol.SessionBindingIsolated
 	allow, deny := nanoprotocol.PermissionAllow, nanoprotocol.PermissionDeny
@@ -116,6 +124,10 @@ func Definitions() []nanoprotocol.AgentTypeDef {
 		// that should have one has to say so — the batch entry point included.
 		Capabilities: []nanoprotocol.TypeCapabilityBinding{
 			{Kind: "builtin_tool", Ref: "parallel_execution", DefaultEnabled: true},
+			// The round report is only meaningful inside a goal round, but the
+			// tool has to be in the belt for the session agent to see it when
+			// the scheduler starts dispatching.
+			{Kind: "builtin_tool", Ref: "goal_report", DefaultEnabled: true},
 		},
 		Seeded: true,
 	}
@@ -179,6 +191,20 @@ func Definitions() []nanoprotocol.AgentTypeDef {
 		Strategy: oneshot, Context: incremental, Output: summary, SessionBinding: scratch,
 		Seeded: true,
 	}
+	// The judge runs inside the container on the goal_report tool's call: it is
+	// a utility like the title generator, with no context, no tools and an
+	// output the caller reads. Its temperature is pinned in Settings — 0 means
+	// deterministic decoding and is sent explicitly, because "omitted" would let
+	// the provider use its default.
+	goalJudge := nanoprotocol.AgentTypeDef{
+		ID: "role_goal_judge", Role: "goal_judge", Name: "Goal judge",
+		Description: "Judges one round of a long-running goal against its condition",
+		MaxRounds:   1,
+		Strategy:    oneshot, Context: none, Output: caller, SessionBinding: scratch,
+		Settings: map[string]string{"judge_temperature": "0"},
+		Seeded:   true,
+	}
+
 	// Note what is deliberately not here: role_background and role_subagent.
 	// Migration 063 (2026-09-20) retired both — the background task type died
 	// with the task tool's `tasks`/`background` parameters, and the generic
@@ -260,5 +286,6 @@ func Definitions() []nanoprotocol.AgentTypeDef {
 		subagent("role_explore", "explore", "Subagent: explore", "Read-only exploration", 12, readOnlyBelt),
 		subagent("role_scout", "scout", "Subagent: scout", "Web research subagent", 12, scoutBelt),
 		memoryFlush,
+		goalJudge,
 	}
 }

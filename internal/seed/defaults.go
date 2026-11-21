@@ -125,6 +125,10 @@ func DefaultConfigItems() map[string][]store.ConfigItem {
 			// Execution mode a scheduled task runs in when neither the task nor
 			// the agent's own setting says otherwise (cron.TaskMode).
 			ci("agent.scheduledTaskMode", "build", "string", "Execution mode scheduled tasks run in: build | plan"),
+			// The long-running goal switch. Off means the scheduler dispatches
+			// no round and the goal surfaces stay hidden; it is the first brake
+			// for a bad deployment, so it ships off.
+			ci("goal.enabled", "false", "bool", "Enable long-running goals (scheduler dispatch and goal surfaces)"),
 			// The platform half of the language setting. The runtime states it in
 			// the per-turn language note; a user may override it in their own
 			// preferences (the user-level half).
