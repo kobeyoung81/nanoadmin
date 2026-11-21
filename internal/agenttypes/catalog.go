@@ -124,10 +124,11 @@ func Definitions() []nanoprotocol.AgentTypeDef {
 		// that should have one has to say so — the batch entry point included.
 		Capabilities: []nanoprotocol.TypeCapabilityBinding{
 			{Kind: "builtin_tool", Ref: "parallel_execution", DefaultEnabled: true},
-			// The round report is only meaningful inside a goal round, but the
-			// tool has to be in the belt for the session agent to see it when
-			// the scheduler starts dispatching.
-			{Kind: "builtin_tool", Ref: "goal_report", DefaultEnabled: true},
+			// The round report ships off: the tool exists in the binary from the
+			// first batch on, but a session that cannot start a goal round must
+			// not be handed a tool that only refuses. The scheduler's batch
+			// flips this default on, in the same release that can dispatch.
+			{Kind: "builtin_tool", Ref: "goal_report", DefaultEnabled: false},
 		},
 		Seeded: true,
 	}
