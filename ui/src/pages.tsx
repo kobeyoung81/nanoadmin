@@ -2,8 +2,11 @@
 //
 // It is the portal's `/admin/runtime` screen, moved out of the shell: the shell
 // mounts it at that route from /plugins/admin/, so releasing this module updates
-// the screen without rebuilding the portal. Everything visual comes from the
-// shell's kit through the context.
+// the screen without rebuilding the portal. The components come from the
+// shell's kit through the context; the utility classes they are styled with
+// come from this module's own build (see styles.css).
+
+import './styles.css'
 
 import { RefreshCw } from 'lucide-react'
 import type { ComponentType } from 'react'
